@@ -206,6 +206,7 @@
       <li><strong>NX has 6 slots</strong> (up to 6 winners); the <strong>raffle has 1</strong> winner.</li>
       <li><strong>Belt looters cannot win</strong> the raffle or NX.</li>
       <li>Among the remaining bonners, anyone who received <strong>more than the average number of boxes</strong> (i.e. got an extra box from an uneven split) <strong>also cannot win</strong> the raffle or NX.</li>
+      <li>The <strong>raffle winner is removed from the NX pool</strong> &mdash; nobody can win both the raffle and NX.</li>
       <li>Winners are drawn only from the eligible bonners. If fewer than 6 are eligible, NX fills only those slots; if nobody is eligible, the section shows &ldquo;&mdash;&rdquo;.</li>
     </ul>
 
@@ -441,6 +442,14 @@
     const beltPool = beltLooters.length > 0 ? beltLooters : bonners;
     const beltSplit = splitEven(BELTS, beltPool.slice());
 
+    const show = {
+      bon: $("cBon").checked,
+      belts: $("cBelts").checked,
+      raffle: $("cRaffle").checked,
+      nx: $("cNx").checked,
+      map: $("cMap").checked
+    };
+
     // raffle + NX pool: belt looters are excluded; and among the remaining bonners,
     // anyone holding MORE than the average box count (i.e. who got an extra box from
     // the uneven split) is also excluded from both raffle and NX.
@@ -449,15 +458,11 @@
       : 0;
     const eligible = others.filter(o => counts[o] <= avgBoxes);
     const raffleWinner = eligible.length ? shuffle(eligible)[0] : null;
-    const nxWinners = shuffle(eligible).slice(0, Math.min(NX_WINNERS, eligible.length));
-
-    const show = {
-      bon: $("cBon").checked,
-      belts: $("cBelts").checked,
-      raffle: $("cRaffle").checked,
-      nx: $("cNx").checked,
-      map: $("cMap").checked
-    };
+    // a raffle winner cannot also be in the NX pool
+    const nxPool = (show.raffle && raffleWinner)
+      ? eligible.filter(p => p !== raffleWinner)
+      : eligible;
+    const nxWinners = shuffle(nxPool).slice(0, Math.min(NX_WINNERS, nxPool.length));
 
     // distinct color per player
     const colorByName = {};
