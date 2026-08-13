@@ -83,8 +83,8 @@
   .stamp { font-size: 12px; color: var(--muted); margin: -6px 0 14px; }
 
   /* Map: 3 rows, each row = two letter-blocks of 5 cells */
-  .map { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 16px; }
-  .map-row { display: grid; grid-template-columns: repeat(5, 1fr) 18px repeat(5, 1fr); gap: 6px; }
+  .map { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 16px; overflow-x: auto; padding-bottom: 4px; }
+  .map-row { display: grid; grid-template-columns: repeat(5, minmax(60px, 1fr)) 16px repeat(5, minmax(60px, 1fr)); gap: 6px; }
   .gap { }
   .cell {
     position: relative;
@@ -98,7 +98,7 @@
     justify-content: space-between;
   }
   .cell .coord { font-size: 10px; color: var(--muted); }
-  .cell .who { font-size: 12px; font-weight: 700; word-break: break-word; line-height: 1.15; }
+  .cell .who { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
   .cell .belt-badge { position: absolute; top: 2px; right: 4px; font-size: 11px; color: var(--belt); }
   .cell.empty { opacity: .45; }
 
