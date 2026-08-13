@@ -131,13 +131,13 @@
     <!-- CONTROLS -->
     <div class="card">
       <label class="top">Bonners <span class="hint">(names; space/comma/newline separated)</span></label>
-      <textarea id="bonners" placeholder="Cody Clem Jae Harley Alice Em Kuro"></textarea>
+      <textarea id="bonners" placeholder="player1 playe2 playe3 ... beltlooter1 beltloote2 beltloote3"></textarea>
 
       <label>Belt looters <span class="hint">(subset of bonners)</span></label>
-      <textarea id="beltLooters" placeholder="Cody Clem"></textarea>
+      <textarea id="beltLooters" placeholder="beltlooter1 beltloote2 beltloote3"></textarea>
 
       <label>Boxes per belt looter</label>
-      <input type="number" id="boxesPerLooter" min="0" max="30" value="4">
+      <input type="number" id="boxesPerLooter" min="0" max="30" value="1">
 
       <div class="checks">
         <label><input type="checkbox" id="cBon" checked> Bon</label>
@@ -265,7 +265,7 @@
   function timestamp(dt) {
     const p = n => String(n).padStart(2, "0");
     return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ` +
-           `${p(dt.getHours())}:${p(dt.getMinutes())}`;
+           `${p(dt.getHours())}:${p(dt.getMinutes())}:${p(dt.getSeconds())}`;
   }
 
   function shuffle(arr) {
@@ -397,13 +397,10 @@
   function renderStats(d) {
     const stats = $("stats");
     stats.style.display = "flex";
-    const boxes = Object.values(d.counts).reduce((a, b) => a + b, 0);
     const items = [
       { num: d.bonners.length, lbl: "Bonners" },
-      { num: d.beltLooters.length, lbl: "Belt looters" },
-      { num: boxes, lbl: "Boxes" }
+      { num: d.beltLooters.length, lbl: "Belt looters" }
     ];
-    if (d.beltShown) items.push({ num: BELTS, lbl: "Belts" });
     stats.innerHTML = items.map(it =>
       `<div class="stat"><div class="num">${it.num}</div><div class="lbl">${it.lbl}</div></div>`
     ).join("");
@@ -411,22 +408,10 @@
 
   function renderLegend(d) {
     const legend = $("legend");
-    if (!d.visible) { legend.style.display = "none"; return; }
+    const hasBelt = d.visible && d.people.some(n => d.beltSet.has(n.toLowerCase()));
+    if (!hasBelt) { legend.style.display = "none"; return; }
     legend.style.display = "flex";
-    const items = d.people.map(name => {
-      const c = d.colorByName[name];
-      const belt = d.beltSet.has(name.toLowerCase())
-        ? ' <span class="belt-tag" title="belt looter">&#9733;</span>' : "";
-      return '<span class="item">' +
-        `<span class="dot" style="background:${c.bg};border-color:${c.border}"></span>` +
-        escapeHtml(name) + belt +
-        ` <span class="cnt">(${d.counts[name]})</span></span>`;
-    });
-    const hasBelt = d.people.some(n => d.beltSet.has(n.toLowerCase()));
-    if (hasBelt) {
-      items.push('<span class="item"><span class="belt-tag">&#9733;</span> = belt looter</span>');
-    }
-    legend.innerHTML = items.join("");
+    legend.innerHTML = '<span class="item"><span class="belt-tag">&#9733;</span> = belt looter</span>';
   }
 
   function buildText(d) {
@@ -564,23 +549,9 @@
     const gridTop = g.pad + g.titleH + g.statsH + g.headGap;
     const gridH = 3 * g.cellH + 2 * g.gap;
 
-    // measure legend into wrapped rows
-    const meas = document.createElement("canvas").getContext("2d");
-    meas.font = "13px system-ui, sans-serif";
-    const items = d.people.map(n => {
-      const belt = d.beltSet.has(n.toLowerCase());
-      const label = n + (belt ? " ★" : "") + " (" + d.counts[n] + ")";
-      return { name: n, belt, w: 18 + meas.measureText(label).width + 20, label };
-    });
-    const rows = [];
-    let cur = [], curW = 0;
-    items.forEach(it => {
-      if (curW + it.w > gridW && cur.length) { rows.push(cur); cur = []; curW = 0; }
-      cur.push(it); curW += it.w;
-    });
-    if (cur.length) rows.push(cur);
+    // legend is just the belt-looter key (one row)
     const hasBelt = d.people.some(n => d.beltSet.has(n.toLowerCase()));
-    const legendH = (rows.length + (hasBelt ? 1 : 0)) * g.legRowH;
+    const legendH = hasBelt ? g.legRowH : 0;
 
     const height = gridTop + gridH + g.legendGap + legendH + g.pad;
 
@@ -612,8 +583,7 @@
     // stats line
     ctx.font = "13px system-ui, sans-serif";
     ctx.fillStyle = g.muted;
-    let statLine = `Bonners ${d.nBon}  ·  Belt looters ${d.nBelt}  ·  Boxes 30`;
-    if (d.beltShown) statLine += `  ·  Belts ${BELTS}`;
+    const statLine = `Bonners ${d.nBon}  ·  Belt looters ${d.nBelt}`;
     ctx.fillText(statLine, g.pad, g.pad + g.titleH);
 
     // grid cells
@@ -666,37 +636,9 @@
       }
     }
 
-    // legend
-    let ly = gridTop + gridH + g.legendGap;
-    ctx.textBaseline = "middle";
-    rows.forEach(row => {
-      let lx = g.pad;
-      row.forEach(it => {
-        const col = d.colorByName[it.name];
-        ctx.fillStyle = col.bg;
-        roundRect(ctx, lx, ly + 4, 13, 13, 4); ctx.fill();
-        ctx.strokeStyle = col.border; ctx.lineWidth = 2;
-        roundRect(ctx, lx, ly + 4, 13, 13, 4); ctx.stroke();
-        lx += 18;
-        ctx.font = "13px system-ui, sans-serif";
-        ctx.fillStyle = g.text;
-        ctx.fillText(it.name, lx, ly + 11);
-        lx += ctx.measureText(it.name).width + 4;
-        if (it.belt) {
-          ctx.fillStyle = g.belt;
-          ctx.fillText("★", lx, ly + 11);
-          lx += ctx.measureText("★ ").width;
-        }
-        ctx.fillStyle = g.muted;
-        const cntTxt = "(" + d.counts[it.name] + ")";
-        ctx.fillText(cntTxt, lx, ly + 11);
-        lx += ctx.measureText(cntTxt).width + 20;
-      });
-      ly += g.legRowH;
-    });
-
     // belt-looter key
     if (hasBelt) {
+      const ly = gridTop + gridH + g.legendGap;
       ctx.font = "13px system-ui, sans-serif";
       ctx.textBaseline = "middle";
       ctx.fillStyle = g.belt;
@@ -797,8 +739,8 @@
   if (saved) {
     applyState(saved);
   } else {
-    $("bonners").value = "Cody Clem Jae Harley Alice Em Kuro";
-    $("beltLooters").value = "Cody Clem";
+    $("bonners").value = "player1 playe2 playe3 playe4 playe5 player6 player7 player8 player9 player10 player11 player12 beltlooter1 beltloote2 beltloote3";
+    $("beltLooters").value = "beltlooter1 beltloote2 beltloote3";
   }
 })();
 </script>
