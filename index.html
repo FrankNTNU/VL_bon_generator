@@ -26,8 +26,60 @@
     padding: 24px;
     min-height: 100vh;
   }
-  h1 { margin: 0 0 4px; font-size: 22px; }
+  h1 { margin: 0; font-size: 22px; }
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
   .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .info-btn {
+    flex: 0 0 auto;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .info-btn:hover { border-color: var(--accent-2); }
+  .rules {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0 24px 22px;
+    max-width: 640px;
+    width: calc(100% - 32px);
+    max-height: 82vh;
+    overflow: auto;
+  }
+  .rules::backdrop { background: rgba(8, 12, 20, 0.6); }
+  .rules-head {
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 0 4px;
+  }
+  .rules-close {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  .rules-close:hover { color: var(--text); }
+  .rules h2 { font-size: 16px; margin: 0; }
+  .rules h3 { font-size: 13px; margin: 16px 0 4px; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
+  .rules ul { margin: 0; padding-left: 20px; }
+  .rules li { font-size: 13px; color: var(--text); line-height: 1.6; margin: 3px 0; }
+  .rules strong { color: var(--text); }
+  .rules em { color: var(--muted); font-style: normal; }
   .layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
   @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
   .card {
@@ -107,7 +159,7 @@
   .legend .item { display: flex; align-items: center; gap: 6px; }
   .legend .dot { width: 13px; height: 13px; border-radius: 4px; border: 2px solid; }
   .legend .cnt { color: var(--muted); }
-  .legend .belt-tag { color: var(--belt); font-weight: 700; }
+  .belt-tag { color: var(--belt); font-weight: 700; }
 
   .out {
     background: var(--panel-2);
@@ -124,8 +176,46 @@
 </style>
 </head>
 <body>
-  <h1>VL Bon Map Generator</h1>
+  <div class="header">
+    <h1>VL Bon Map Generator</h1>
+    <button class="info-btn" id="rulesBtn">&#9432; Rules</button>
+  </div>
   <div class="sub">6 letter-strips (A&ndash;F) &times; 5 boxes = 30. Belt looters get a fixed number of boxes each; everyone gets a contiguous strip. Copy output is Discord-ready markdown.</div>
+
+  <dialog class="rules" id="rules">
+    <div class="rules-head">
+      <h2>How it works</h2>
+      <button class="rules-close" id="rulesClose" aria-label="Close">&times;</button>
+    </div>
+
+    <h3>Boxes on the map</h3>
+    <ul>
+      <li>The map has <strong>30 boxes</strong>: 6 strips (A&ndash;F) of 5, laid out as A/B (top), C/D (middle), E/F (bottom).</li>
+      <li><strong>Belt looters</strong> each get a fixed number of boxes &mdash; the <em>Boxes per belt looter</em> setting.</li>
+      <li>The remaining boxes are split <strong>as evenly as possible</strong> among the other bonners.</li>
+      <li>Each person&rsquo;s boxes are assigned as a <strong>compact cluster</strong>, kept close and reachable via the center ropes &mdash; nobody gets boxes stranded on opposite sides of a level.</li>
+    </ul>
+
+    <h3>Belts</h3>
+    <ul>
+      <li><strong>6 belts</strong> are split as evenly as possible among the belt looters (the Belts list shows each looter&rsquo;s name once per belt they receive).</li>
+    </ul>
+
+    <h3>Raffle &amp; NX eligibility</h3>
+    <ul>
+      <li><strong>NX has 6 slots</strong> (up to 6 winners); the <strong>raffle has 1</strong> winner.</li>
+      <li><strong>Belt looters cannot win</strong> the raffle or NX.</li>
+      <li>Among the remaining bonners, anyone who received <strong>more than the average number of boxes</strong> (i.e. got an extra box from an uneven split) <strong>also cannot win</strong> the raffle or NX.</li>
+      <li>Winners are drawn only from the eligible bonners. If fewer than 6 are eligible, NX fills only those slots; if nobody is eligible, the section shows &ldquo;&mdash;&rdquo;.</li>
+    </ul>
+
+    <h3>Other</h3>
+    <ul>
+      <li><span class="belt-tag">&#9733;</span> marks belt looters on the map.</li>
+      <li>Copy text is Discord-ready markdown; <em>Copy map image</em> puts the colored map on your clipboard as a PNG.</li>
+      <li>The timestamp records when the layout was generated.</li>
+    </ul>
+  </dialog>
 
   <div class="layout">
     <!-- CONTROLS -->
@@ -351,9 +441,15 @@
     const beltPool = beltLooters.length > 0 ? beltLooters : bonners;
     const beltSplit = splitEven(BELTS, beltPool.slice());
 
-    // raffle + NX
-    const raffleWinner = shuffle(bonners)[0];
-    const nxWinners = shuffle(bonners).slice(0, Math.min(NX_WINNERS, bonners.length));
+    // raffle + NX pool: belt looters are excluded; and among the remaining bonners,
+    // anyone holding MORE than the average box count (i.e. who got an extra box from
+    // the uneven split) is also excluded from both raffle and NX.
+    const avgBoxes = others.length
+      ? others.reduce((s, o) => s + counts[o], 0) / others.length
+      : 0;
+    const eligible = others.filter(o => counts[o] <= avgBoxes);
+    const raffleWinner = eligible.length ? shuffle(eligible)[0] : null;
+    const nxWinners = shuffle(eligible).slice(0, Math.min(NX_WINNERS, eligible.length));
 
     const show = {
       bon: $("cBon").checked,
@@ -435,11 +531,11 @@
     }
 
     if (d.show.raffle) {
-      parts.push("Raffle:\n" + FENCE + "\n" + d.raffleWinner + "\n" + FENCE);
+      parts.push("Raffle:\n" + FENCE + "\n" + (d.raffleWinner || "—") + "\n" + FENCE);
     }
 
     if (d.show.nx) {
-      parts.push("NX:\n" + FENCE + "\n" + d.nxWinners.join("\n") + "\n" + FENCE);
+      parts.push("NX:\n" + FENCE + "\n" + (d.nxWinners.length ? d.nxWinners.join("\n") : "—") + "\n" + FENCE);
     }
 
     if (d.show.map) {
@@ -682,6 +778,10 @@
     if (!canvas) { flash("pngBtn", "Generate first"); return; }
     canvas.toBlob(blob => { downloadBlob(blob); flash("pngBtn", "Saved!"); }, "image/png");
   }
+
+  $("rulesBtn").addEventListener("click", () => $("rules").showModal());
+  $("rulesClose").addEventListener("click", () => $("rules").close());
+  $("rules").addEventListener("click", (e) => { if (e.target === $("rules")) $("rules").close(); });
 
   $("genBtn").addEventListener("click", generate);
   $("copyBtn").addEventListener("click", () => {
