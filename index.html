@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VL Bon Map Generator</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --panel: #1a2233;
+    --panel-2: #232d42;
+    --border: #33405c;
+    --text: #e6ecf5;
+    --muted: #9aa7bd;
+    --accent: #ffcc4d;
+    --accent-2: #4da6ff;
+    --belt: #ff7a59;
+    --danger: #ff5d6c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 70% -10%, #1c2740, var(--bg));
+    color: var(--text);
+    padding: 24px;
+    min-height: 100vh;
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+  label.top { margin-top: 0; }
+  .hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+  textarea, input[type=number] {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 10px;
+    font: inherit;
+    resize: vertical;
+  }
+  textarea { min-height: 84px; }
+  .checks { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+  .checks label { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 500; cursor: pointer; }
+  .checks input { accent-color: var(--accent-2); }
+  .row { display: flex; gap: 10px; margin-top: 18px; }
+  button {
+    flex: 1;
+    padding: 11px 14px;
+    border: none;
+    border-radius: 8px;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--accent); color: #241c00; }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-ghost { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent-2); }
+  .err { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 16px; }
+
+  /* Stats bar */
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .stat {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    min-width: 82px;
+  }
+  .stat .num { font-size: 22px; font-weight: 800; line-height: 1.1; }
+  .stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .stamp { font-size: 12px; color: var(--muted); margin: -6px 0 14px; }
+
+  /* Map: 3 rows, each row = two letter-blocks of 5 cells */
+  .map { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 16px; }
+  .map-row { display: grid; grid-template-columns: repeat(5, 1fr) 18px repeat(5, 1fr); gap: 6px; }
+  .gap { }
+  .cell {
+    position: relative;
+    background: var(--panel-2);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 6px;
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .cell .coord { font-size: 10px; color: var(--muted); }
+  .cell .who { font-size: 12px; font-weight: 700; word-break: break-word; line-height: 1.15; }
+  .cell .belt-badge { position: absolute; top: 2px; right: 4px; font-size: 11px; color: var(--belt); }
+  .cell.empty { opacity: .45; }
+
+  /* Legend: one entry per player */
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 12px; font-size: 12px; }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 13px; height: 13px; border-radius: 4px; border: 2px solid; }
+  .legend .cnt { color: var(--muted); }
+  .legend .belt-tag { color: var(--belt); font-weight: 700; }
+
+  .out {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    white-space: pre;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    max-height: 520px;
+    overflow: auto;
+  }
+</style>
+</head>
+<body>
+  <h1>VL Bon Map Generator</h1>
+  <div class="sub">6 letter-strips (A&ndash;F) &times; 5 boxes = 30. Belt looters get a fixed number of boxes each; everyone gets a contiguous strip. Copy output is Discord-ready markdown.</div>
+
+  <div class="layout">
+    <!-- CONTROLS -->
+    <div class="card">
+      <label class="top">Bonners <span class="hint">(names; space/comma/newline separated)</span></label>
+      <textarea id="bonners" placeholder="Cody Clem Jae Harley Alice Em Kuro"></textarea>
+
+      <label>Belt looters <span class="hint">(subset of bonners)</span></label>
+      <textarea id="beltLooters" placeholder="Cody Clem"></textarea>
+
+      <label>Boxes per belt looter</label>
+      <input type="number" id="boxesPerLooter" min="0" max="30" value="4">
+
+      <div class="checks">
+        <label><input type="checkbox" id="cBon" checked> Bon</label>
+        <label><input type="checkbox" id="cBelts" checked> Belts</label>
+        <label><input type="checkbox" id="cRaffle" checked> Raffle</label>
+        <label><input type="checkbox" id="cNx"> NX</label>
+        <label><input type="checkbox" id="cMap" checked> Bon Map</label>
+      </div>
+
+      <div class="row">
+        <button class="btn-primary" id="genBtn">Generate</button>
+        <button class="btn-ghost" id="copyBtn">Copy text</button>
+      </div>
+      <div class="row">
+        <button class="btn-ghost" id="imgBtn">Copy map image</button>
+        <button class="btn-ghost" id="pngBtn">Save PNG</button>
+      </div>
+      <div class="err" id="err"></div>
+    </div>
+
+    <!-- OUTPUT -->
+    <div class="card">
+      <div class="stats" id="stats" style="display:none"></div>
+      <div class="stamp" id="stamp" style="display:none"></div>
+      <div class="legend" id="legend" style="display:none"></div>
+      <div class="map" id="map" style="display:none"></div>
+      <div class="out" id="out">Enter names and press Generate.</div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const LETTERS = ["A", "B", "C", "D", "E", "F"];
+  const PER_STRIP = 5;
+  const TOTAL_BOXES = LETTERS.length * PER_STRIP; // 30
+  const BELTS = 6;
+  const NX_WINNERS = 6;
+  const FENCE = "```";
+  let lastRender = null; // snapshot of the most recent generation, for the image export
+
+  // Reference map, exactly as physically laid out.
+  const MAP_REFERENCE =
+    "A1 A2 A3 A4 A5   B1 B2 B3 B4 B5\n" +
+    "C1 C2 C3 C4 C5   D1 D2 D3 D4 D5\n" +
+    "E1 E2 E3 E4 E5   F1 F2 F3 F4 F5";
+
+  // --- Map geometry (ropes are only near the CENTER seam of each level) ---
+  const LEVEL = { A: 0, B: 0, C: 1, D: 1, E: 2, F: 2 };
+  const RIGHT_BLOCK = "BDF"; // right-hand strips; center seam is between the left and right block
+  const ROPE = 2;            // cost of climbing one level (only reachable near center)
+
+  function boxGeom(coord) {
+    const L = coord[0];
+    const n = parseInt(coord.slice(1), 10);
+    const isRight = RIGHT_BLOCK.includes(L);
+    return {
+      coord,
+      level: LEVEL[L],
+      x: isRight ? PER_STRIP + n : n,                 // 1..10 left-to-right across the level
+      centerRank: isRight ? (n - 1) : (PER_STRIP - n) // 0 = hugs center rope, 4 = far edge
+    };
+  }
+
+  // Rope-aware travel cost between two boxes.
+  function dist(a, b) {
+    if (a.level === b.level) return Math.abs(a.x - b.x);        // walk along the level
+    return a.centerRank + b.centerRank + ROPE * Math.abs(a.level - b.level); // via the center rope
+  }
+
+  const ALL_BOXES = (() => {
+    const list = [];
+    LETTERS.forEach(L => { for (let n = 1; n <= PER_STRIP; n++) list.push(boxGeom(L + n)); });
+    return list;
+  })();
+
+  // Grow each player a compact cluster: seed at the farthest-from-center box still free,
+  // then repeatedly pull in the nearest remaining box (rope-aware). Keeps everyone's boxes
+  // reachable — never far-apart-on-opposite-levels like d5+e1.
+  function assignRegions(playersInOrder, counts) {
+    const remaining = ALL_BOXES.slice();
+    const boxesByPerson = {};
+    playersInOrder.forEach(name => {
+      const size = counts[name];
+      boxesByPerson[name] = [];
+      if (size <= 0) return;
+
+      // seed: farthest corner still available (far from center, prefer top/bottom levels)
+      let si = 0, bestSeed = -Infinity;
+      remaining.forEach((b, i) => {
+        const score = b.centerRank * 2 + (b.level === 1 ? 0 : 1);
+        if (score > bestSeed) { bestSeed = score; si = i; }
+      });
+      const group = [remaining[si]];
+      remaining.splice(si, 1);
+
+      // grow toward the nearest free box (single-linkage keeps it contiguous)
+      while (group.length < size) {
+        let bi = -1, bd = Infinity;
+        for (let i = 0; i < remaining.length; i++) {
+          let d = Infinity;
+          for (const m of group) { const dd = dist(remaining[i], m); if (dd < d) d = dd; }
+          if (d < bd) { bd = d; bi = i; }
+        }
+        group.push(remaining[bi]);
+        remaining.splice(bi, 1);
+      }
+      boxesByPerson[name] = group;
+    });
+    return boxesByPerson;
+  }
+
+  // Sort a player's boxes into natural reading order (level, then left-to-right).
+  function sortGeoms(geoms) {
+    return geoms.slice().sort((a, b) => a.level - b.level || a.x - b.x);
+  }
+
+  function parseNames(str) {
+    return str.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+  }
+
+  // Local date-time, e.g. "2026-08-13 14:32"
+  function timestamp(dt) {
+    const p = n => String(n).padStart(2, "0");
+    return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ` +
+           `${p(dt.getHours())}:${p(dt.getMinutes())}`;
+  }
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // Distribute integer `total` across `people` as evenly as possible; random who gets the extras.
+  function splitEven(total, people) {
+    const out = {};
+    people.forEach(p => (out[p] = 0));
+    if (people.length === 0) return out;
+    const base = Math.floor(total / people.length);
+    const extra = total % people.length;
+    people.forEach(p => (out[p] = base));
+    shuffle(people).slice(0, extra).forEach(p => (out[p] += 1));
+    return out;
+  }
+
+  function fail(msg) { $("err").textContent = msg; return null; }
+
+  function generate() {
+    $("err").textContent = "";
+
+    const bonners = parseNames($("bonners").value);
+    const beltLootersRaw = parseNames($("beltLooters").value);
+    const perLooter = parseInt($("boxesPerLooter").value, 10) || 0;
+
+    // validation
+    const seen = new Set();
+    for (const n of bonners) {
+      const k = n.toLowerCase();
+      if (seen.has(k)) return fail(`Duplicate bonner name: "${n}"`);
+      seen.add(k);
+    }
+    if (bonners.length < 1) return fail("Enter at least one bonner.");
+    if (bonners.length > TOTAL_BOXES) return fail(`Too many bonners (max ${TOTAL_BOXES}).`);
+
+    const bonnerSet = new Set(bonners.map(b => b.toLowerCase()));
+    const beltLooters = [];
+    for (const n of beltLootersRaw) {
+      if (!bonnerSet.has(n.toLowerCase())) return fail(`Belt looter "${n}" is not in the bonner list.`);
+      beltLooters.push(n);
+    }
+
+    const beltCost = beltLooters.length * perLooter;
+    if (beltCost > TOTAL_BOXES) {
+      return fail(`${beltLooters.length} belt looters × ${perLooter} = ${beltCost}, exceeds ${TOTAL_BOXES} boxes.`);
+    }
+
+    // box counts per person
+    const beltSet = new Set(beltLooters.map(b => b.toLowerCase()));
+    const others = bonners.filter(b => !beltSet.has(b.toLowerCase()));
+    const counts = {};
+    bonners.forEach(b => (counts[b] = 0));
+    beltLooters.forEach(l => (counts[l] += perLooter));
+
+    const remaining = TOTAL_BOXES - beltCost;
+    if (others.length > 0) {
+      const split = splitEven(remaining, others.slice());
+      others.forEach(o => (counts[o] += split[o]));
+    } else if (beltLooters.length > 0 && remaining > 0) {
+      const split = splitEven(remaining, beltLooters.slice());
+      beltLooters.forEach(l => (counts[l] += split[l]));
+    }
+
+    // assign each player a compact, rope-aware cluster of boxes
+    const people = shuffle(bonners).filter(b => counts[b] > 0);
+    const regions = assignRegions(people, counts);
+    const boxesByPerson = {};   // name -> [coords in reading order]
+    const ownerByCoord = {};    // coord -> name
+    people.forEach(name => {
+      const sorted = sortGeoms(regions[name]);
+      boxesByPerson[name] = sorted.map(g => g.coord);
+      sorted.forEach(g => (ownerByCoord[g.coord] = name));
+    });
+
+    // belts: split among belt looters (or all bonners if none), one number per looter
+    const beltPool = beltLooters.length > 0 ? beltLooters : bonners;
+    const beltSplit = splitEven(BELTS, beltPool.slice());
+
+    // raffle + NX
+    const raffleWinner = shuffle(bonners)[0];
+    const nxWinners = shuffle(bonners).slice(0, Math.min(NX_WINNERS, bonners.length));
+
+    const show = {
+      bon: $("cBon").checked,
+      belts: $("cBelts").checked,
+      raffle: $("cRaffle").checked,
+      nx: $("cNx").checked,
+      map: $("cMap").checked
+    };
+
+    // distinct color per player
+    const colorByName = {};
+    people.forEach((name, i) => (colorByName[name] = colorFor(i, people.length)));
+
+    const stamp = timestamp(new Date());
+
+    renderStats({ bonners, beltLooters, counts, beltShown: show.belts });
+    $("stamp").style.display = "block";
+    $("stamp").textContent = "Generated " + stamp;
+    renderLegend({ people, counts, beltSet, colorByName, visible: show.map });
+    renderMap({ ownerByCoord, beltSet, colorByName, visible: show.map });
+    const text = buildText({ people, boxesByPerson, beltPool, beltSplit, raffleWinner, nxWinners, stamp, show });
+    $("out").textContent = text;
+
+    lastRender = {
+      people, ownerByCoord, counts, colorByName,
+      beltSet, nBon: bonners.length, nBelt: beltLooters.length,
+      beltShown: show.belts, stamp
+    };
+  }
+
+  // Evenly-spaced hues so every player is visually distinct.
+  function colorFor(i, total) {
+    const hue = Math.round((i * 360) / Math.max(total, 1));
+    return {
+      bg: `hsla(${hue}, 70%, 55%, 0.30)`,
+      border: `hsl(${hue}, 78%, 64%)`,
+      solid: `hsl(${hue}, 70%, 55%)`
+    };
+  }
+
+  function renderStats(d) {
+    const stats = $("stats");
+    stats.style.display = "flex";
+    const boxes = Object.values(d.counts).reduce((a, b) => a + b, 0);
+    const items = [
+      { num: d.bonners.length, lbl: "Bonners" },
+      { num: d.beltLooters.length, lbl: "Belt looters" },
+      { num: boxes, lbl: "Boxes" }
+    ];
+    if (d.beltShown) items.push({ num: BELTS, lbl: "Belts" });
+    stats.innerHTML = items.map(it =>
+      `<div class="stat"><div class="num">${it.num}</div><div class="lbl">${it.lbl}</div></div>`
+    ).join("");
+  }
+
+  function renderLegend(d) {
+    const legend = $("legend");
+    if (!d.visible) { legend.style.display = "none"; return; }
+    legend.style.display = "flex";
+    const items = d.people.map(name => {
+      const c = d.colorByName[name];
+      const belt = d.beltSet.has(name.toLowerCase())
+        ? ' <span class="belt-tag" title="belt looter">&#9733;</span>' : "";
+      return '<span class="item">' +
+        `<span class="dot" style="background:${c.bg};border-color:${c.border}"></span>` +
+        escapeHtml(name) + belt +
+        ` <span class="cnt">(${d.counts[name]})</span></span>`;
+    });
+    const hasBelt = d.people.some(n => d.beltSet.has(n.toLowerCase()));
+    if (hasBelt) {
+      items.push('<span class="item"><span class="belt-tag">&#9733;</span> = belt looter</span>');
+    }
+    legend.innerHTML = items.join("");
+  }
+
+  function buildText(d) {
+    const parts = [];
+
+    if (d.show.bon) {
+      const pad = d.people.reduce((m, n) => Math.max(m, n.length), 0) + 2;
+      const rows = d.people.map(name => {
+        const boxes = d.boxesByPerson[name].map(c => c.toLowerCase()).join(",");
+        return name.padEnd(pad) + boxes;
+      });
+      parts.push("Bon:\n" + FENCE + "\n" + rows.join("\n") + "\n" + FENCE);
+    }
+
+    if (d.show.belts) {
+      const beltLines = [];
+      d.beltPool.forEach(p => {
+        for (let i = 0; i < d.beltSplit[p]; i++) beltLines.push(p);
+      });
+      parts.push("Belts:\n" + FENCE + "\n" + beltLines.join("\n") + "\n" + FENCE);
+    }
+
+    if (d.show.raffle) {
+      parts.push("Raffle:\n" + FENCE + "\n" + d.raffleWinner + "\n" + FENCE);
+    }
+
+    if (d.show.nx) {
+      parts.push("NX:\n" + FENCE + "\n" + d.nxWinners.join("\n") + "\n" + FENCE);
+    }
+
+    if (d.show.map) {
+      parts.push("Bon Map:\n" + FENCE + "\n" + MAP_REFERENCE + "\n" + FENCE);
+    }
+
+    if (d.stamp) parts.push("Generated " + d.stamp);
+
+    return parts.join("\n");
+  }
+
+  function renderMap(d) {
+    const map = $("map");
+    if (!d.visible) { map.style.display = "none"; return; }
+    map.style.display = "flex";
+    map.innerHTML = "";
+
+    // rows: [A,B], [C,D], [E,F]
+    for (let r = 0; r < 3; r++) {
+      const rowEl = document.createElement("div");
+      rowEl.className = "map-row";
+      addStrip(rowEl, LETTERS[r * 2], d);
+      const gap = document.createElement("div");
+      gap.className = "gap";
+      rowEl.appendChild(gap);
+      addStrip(rowEl, LETTERS[r * 2 + 1], d);
+      map.appendChild(rowEl);
+    }
+  }
+
+  function addStrip(rowEl, letter, d) {
+    for (let n = 1; n <= PER_STRIP; n++) {
+      const coord = letter + n;
+      const who = d.ownerByCoord[coord];
+      const cell = document.createElement("div");
+      if (!who) {
+        cell.className = "cell empty";
+        cell.innerHTML = '<span class="coord">' + coord + '</span><span class="who">&mdash;</span>';
+      } else {
+        const c = d.colorByName[who];
+        const isBelt = d.beltSet.has(who.toLowerCase());
+        cell.className = "cell";
+        cell.style.background = c.bg;
+        cell.style.borderColor = c.border;
+        cell.innerHTML =
+          '<span class="coord">' + coord + '</span>' +
+          (isBelt ? '<span class="belt-badge" title="belt looter">&#9733;</span>' : '') +
+          '<span class="who">' + escapeHtml(who) + '</span>';
+      }
+      rowEl.appendChild(cell);
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  function flash(id, msg) {
+    const b = $(id);
+    const old = b.dataset.label || b.textContent;
+    b.dataset.label = old;
+    b.textContent = msg;
+    setTimeout(() => (b.textContent = old), 1300);
+  }
+
+  // ---- Render the colored map to a PNG canvas (self-contained, no libraries) ----
+  const IMG = {
+    pad: 22, cellW: 96, cellH: 58, gap: 8, centerGap: 26,
+    titleH: 26, statsH: 22, headGap: 16, legendGap: 16, legRowH: 22,
+    bg: "#141b28", panel2: "#232d42", border: "#33405c",
+    text: "#e6ecf5", muted: "#9aa7bd", belt: "#ff7a59"
+  };
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function truncate(ctx, str, maxW) {
+    if (ctx.measureText(str).width <= maxW) return str;
+    let s = str;
+    while (s.length > 1 && ctx.measureText(s + "…").width > maxW) s = s.slice(0, -1);
+    return s + "…";
+  }
+
+  function xForCol(c) {
+    const g = IMG;
+    const leftBlock = 5 * g.cellW + 4 * g.gap;
+    return c < 5
+      ? g.pad + c * (g.cellW + g.gap)
+      : g.pad + leftBlock + g.centerGap + (c - 5) * (g.cellW + g.gap);
+  }
+
+  function drawMapCanvas() {
+    if (!lastRender) return null;
+    const d = lastRender, g = IMG, S = 2;
+
+    const gridW = xForCol(9) + g.cellW - g.pad; // width of the grid area
+    const width = gridW + g.pad * 2;
+    const gridTop = g.pad + g.titleH + g.statsH + g.headGap;
+    const gridH = 3 * g.cellH + 2 * g.gap;
+
+    // measure legend into wrapped rows
+    const meas = document.createElement("canvas").getContext("2d");
+    meas.font = "13px system-ui, sans-serif";
+    const items = d.people.map(n => {
+      const belt = d.beltSet.has(n.toLowerCase());
+      const label = n + (belt ? " ★" : "") + " (" + d.counts[n] + ")";
+      return { name: n, belt, w: 18 + meas.measureText(label).width + 20, label };
+    });
+    const rows = [];
+    let cur = [], curW = 0;
+    items.forEach(it => {
+      if (curW + it.w > gridW && cur.length) { rows.push(cur); cur = []; curW = 0; }
+      cur.push(it); curW += it.w;
+    });
+    if (cur.length) rows.push(cur);
+    const hasBelt = d.people.some(n => d.beltSet.has(n.toLowerCase()));
+    const legendH = (rows.length + (hasBelt ? 1 : 0)) * g.legRowH;
+
+    const height = gridTop + gridH + g.legendGap + legendH + g.pad;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width * S;
+    canvas.height = height * S;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(S, S);
+
+    // background
+    ctx.fillStyle = g.bg;
+    ctx.fillRect(0, 0, width, height);
+
+    // title
+    ctx.fillStyle = g.text;
+    ctx.font = "600 18px system-ui, sans-serif";
+    ctx.textBaseline = "top";
+    ctx.fillText("VL Bon Map", g.pad, g.pad);
+
+    // timestamp (top-right)
+    if (d.stamp) {
+      ctx.font = "12px system-ui, sans-serif";
+      ctx.fillStyle = g.muted;
+      ctx.textAlign = "right";
+      ctx.fillText("Generated " + d.stamp, width - g.pad, g.pad + 4);
+      ctx.textAlign = "left";
+    }
+
+    // stats line
+    ctx.font = "13px system-ui, sans-serif";
+    ctx.fillStyle = g.muted;
+    let statLine = `Bonners ${d.nBon}  ·  Belt looters ${d.nBelt}  ·  Boxes 30`;
+    if (d.beltShown) statLine += `  ·  Belts ${BELTS}`;
+    ctx.fillText(statLine, g.pad, g.pad + g.titleH);
+
+    // grid cells
+    for (let r = 0; r < 3; r++) {
+      const left = LETTERS[r * 2], right = LETTERS[r * 2 + 1];
+      const y = gridTop + r * (g.cellH + g.gap);
+      for (let c = 0; c < 10; c++) {
+        const letter = c < 5 ? left : right;
+        const n = (c < 5 ? c : c - 5) + 1;
+        const coord = letter + n;
+        const who = d.ownerByCoord[coord];
+        const x = xForCol(c);
+
+        // base + colored fill
+        ctx.fillStyle = g.panel2;
+        roundRect(ctx, x, y, g.cellW, g.cellH, 8); ctx.fill();
+        if (who) {
+          const col = d.colorByName[who];
+          ctx.fillStyle = col.bg;
+          roundRect(ctx, x, y, g.cellW, g.cellH, 8); ctx.fill();
+          ctx.strokeStyle = col.border;
+        } else {
+          ctx.strokeStyle = g.border;
+        }
+        ctx.lineWidth = 2;
+        roundRect(ctx, x, y, g.cellW, g.cellH, 8); ctx.stroke();
+
+        // coord (top-left)
+        ctx.fillStyle = g.muted;
+        ctx.font = "10px system-ui, sans-serif";
+        ctx.textBaseline = "top";
+        ctx.fillText(coord, x + 7, y + 6);
+
+        // belt star (top-right)
+        if (who && d.beltSet.has(who.toLowerCase())) {
+          ctx.fillStyle = g.belt;
+          ctx.font = "12px system-ui, sans-serif";
+          ctx.textAlign = "right";
+          ctx.fillText("★", x + g.cellW - 6, y + 5);
+          ctx.textAlign = "left";
+        }
+
+        // name (bottom-left)
+        if (who) {
+          ctx.fillStyle = g.text;
+          ctx.font = "600 13px system-ui, sans-serif";
+          ctx.textBaseline = "alphabetic";
+          ctx.fillText(truncate(ctx, who, g.cellW - 14), x + 7, y + g.cellH - 9);
+        }
+      }
+    }
+
+    // legend
+    let ly = gridTop + gridH + g.legendGap;
+    ctx.textBaseline = "middle";
+    rows.forEach(row => {
+      let lx = g.pad;
+      row.forEach(it => {
+        const col = d.colorByName[it.name];
+        ctx.fillStyle = col.bg;
+        roundRect(ctx, lx, ly + 4, 13, 13, 4); ctx.fill();
+        ctx.strokeStyle = col.border; ctx.lineWidth = 2;
+        roundRect(ctx, lx, ly + 4, 13, 13, 4); ctx.stroke();
+        lx += 18;
+        ctx.font = "13px system-ui, sans-serif";
+        ctx.fillStyle = g.text;
+        ctx.fillText(it.name, lx, ly + 11);
+        lx += ctx.measureText(it.name).width + 4;
+        if (it.belt) {
+          ctx.fillStyle = g.belt;
+          ctx.fillText("★", lx, ly + 11);
+          lx += ctx.measureText("★ ").width;
+        }
+        ctx.fillStyle = g.muted;
+        const cntTxt = "(" + d.counts[it.name] + ")";
+        ctx.fillText(cntTxt, lx, ly + 11);
+        lx += ctx.measureText(cntTxt).width + 20;
+      });
+      ly += g.legRowH;
+    });
+
+    // belt-looter key
+    if (hasBelt) {
+      ctx.font = "13px system-ui, sans-serif";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = g.belt;
+      ctx.fillText("★", g.pad, ly + 11);
+      const sw = ctx.measureText("★ ").width;
+      ctx.fillStyle = g.muted;
+      ctx.fillText("= belt looter", g.pad + sw, ly + 11);
+    }
+
+    return canvas;
+  }
+
+  function downloadBlob(blob) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "vl-bon-map.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function copyMapImage() {
+    const canvas = drawMapCanvas();
+    if (!canvas) { flash("imgBtn", "Generate first"); return; }
+    canvas.toBlob(blob => {
+      if (navigator.clipboard && window.ClipboardItem) {
+        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+          .then(() => flash("imgBtn", "Copied!"))
+          .catch(() => { downloadBlob(blob); flash("imgBtn", "Saved PNG"); });
+      } else {
+        downloadBlob(blob);
+        flash("imgBtn", "Saved PNG");
+      }
+    }, "image/png");
+  }
+
+  function saveMapPng() {
+    const canvas = drawMapCanvas();
+    if (!canvas) { flash("pngBtn", "Generate first"); return; }
+    canvas.toBlob(blob => { downloadBlob(blob); flash("pngBtn", "Saved!"); }, "image/png");
+  }
+
+  $("genBtn").addEventListener("click", generate);
+  $("copyBtn").addEventListener("click", () => {
+    navigator.clipboard.writeText($("out").textContent).then(() => flash("copyBtn", "Copied!"));
+  });
+  $("imgBtn").addEventListener("click", copyMapImage);
+  $("pngBtn").addEventListener("click", saveMapPng);
+
+  // ---- Roster persistence (localStorage) — remembers your last-used lists ----
+  const LS_LAST = "vlBon.last";
+
+  function lsGet(key, fallback) {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+    catch (e) { return fallback; }
+  }
+  function lsSet(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+  }
+
+  function currentState() {
+    return {
+      bonners: $("bonners").value,
+      beltLooters: $("beltLooters").value,
+      perLooter: $("boxesPerLooter").value,
+      checks: {
+        bon: $("cBon").checked, belts: $("cBelts").checked,
+        raffle: $("cRaffle").checked, nx: $("cNx").checked, map: $("cMap").checked
+      }
+    };
+  }
+  function applyState(s) {
+    if (!s) return;
+    if (s.bonners != null) $("bonners").value = s.bonners;
+    if (s.beltLooters != null) $("beltLooters").value = s.beltLooters;
+    if (s.perLooter != null) $("boxesPerLooter").value = s.perLooter;
+    if (s.checks) {
+      $("cBon").checked = !!s.checks.bon;
+      $("cBelts").checked = !!s.checks.belts;
+      $("cRaffle").checked = !!s.checks.raffle;
+      $("cNx").checked = !!s.checks.nx;
+      $("cMap").checked = !!s.checks.map;
+    }
+  }
+  function saveLast() { lsSet(LS_LAST, currentState()); }
+
+  // persist on any edit
+  ["bonners", "beltLooters", "boxesPerLooter", "cBon", "cBelts", "cRaffle", "cNx", "cMap"]
+    .forEach(id => {
+      $(id).addEventListener("input", saveLast);
+      $(id).addEventListener("change", saveLast);
+    });
+
+  // init: restore last session, or fall back to a demo roster
+  const saved = lsGet(LS_LAST, null);
+  if (saved) {
+    applyState(saved);
+  } else {
+    $("bonners").value = "Cody Clem Jae Harley Alice Em Kuro";
+    $("beltLooters").value = "Cody Clem";
+  }
+})();
+</script>
+</body>
+</html>
