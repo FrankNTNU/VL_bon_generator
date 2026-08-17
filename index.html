@@ -728,7 +728,6 @@
     const nxLines = nxShown ? wrapFor("NX winners:", nxImg, d.nxList) : [];
 
     let bottomH = 0;
-    if (hasBelt) bottomH += g.legRowH;
     if (beltsShown) bottomH += (bottomH ? 10 : 0) + g.legRowH + (beltsLines.length - 1) * 18;
     if (raffleShown) bottomH += (bottomH ? 10 : 0) + g.legRowH;
     if (nxShown) bottomH += (bottomH ? 10 : 0) + g.legRowH + (nxLines.length - 1) * 18;
