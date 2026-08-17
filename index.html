@@ -80,6 +80,8 @@
   .rules li { font-size: 13px; color: var(--text); line-height: 1.6; margin: 3px 0; }
   .rules strong { color: var(--text); }
   .rules em { color: var(--muted); font-style: normal; }
+  .rules .ri { height: 16px; width: auto; vertical-align: -4px; margin: 0 2px; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .rules h3 .ri { height: 20px; vertical-align: -5px; margin: 0 6px 0 0; }
   .layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
   @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
   .card {
@@ -151,8 +153,9 @@
   }
   .cell .coord { font-size: 10px; color: var(--muted); }
   .cell .who { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
-  .cell .belt-badge { position: absolute; top: 2px; right: 4px; font-size: 11px; color: var(--belt); }
+  .cell .belt-badge { position: absolute; top: 2px; right: 3px; height: 15px; width: auto; }
   .cell.empty { opacity: .45; }
+  .ri { height: 16px; width: auto; vertical-align: middle; image-rendering: pixelated; image-rendering: crisp-edges; }
 
   /* Legend: one entry per player */
   .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 12px; font-size: 12px; }
@@ -196,12 +199,12 @@
       <li>Each person&rsquo;s boxes are assigned as a <strong>compact cluster</strong>, kept close and reachable via the center ropes &mdash; nobody gets boxes stranded on opposite sides of a level.</li>
     </ul>
 
-    <h3>Belts</h3>
+    <h3><img class="ri" src="belt.png" alt="">Belts</h3>
     <ul>
-      <li><strong>6 belts</strong> are split as evenly as possible among the belt looters (the Belts list shows each looter&rsquo;s name once per belt they receive).</li>
+      <li><strong>6 belts <img class="ri" src="belt.png" alt="belt"></strong> are split as evenly as possible among the belt looters (the Belts list shows each looter&rsquo;s name once per belt they receive).</li>
     </ul>
 
-    <h3>Raffle &amp; NX eligibility</h3>
+    <h3><img class="ri" src="raffle.png" alt=""><img class="ri" src="nx.png" alt="">Raffle &amp; NX eligibility</h3>
     <ul>
       <li><strong>NX has 6 slots</strong> (up to 6 winners); the <strong>raffle has 1</strong> winner.</li>
       <li><strong>Belt looters cannot win</strong> the raffle or NX.</li>
@@ -212,7 +215,7 @@
 
     <h3>Other</h3>
     <ul>
-      <li><span class="belt-tag">&#9733;</span> marks belt looters on the map.</li>
+      <li><img class="ri" src="belt.png" alt="belt looter"> marks belt looters on the map.</li>
       <li>Copy text is Discord-ready markdown; <em>Copy map image</em> puts the colored map on your clipboard as a PNG.</li>
       <li>The timestamp records when the layout was generated.</li>
     </ul>
@@ -271,6 +274,10 @@
   const NX_WINNERS = 6;
   const FENCE = "```";
   let lastRender = null; // snapshot of the most recent generation, for the image export
+  // Belt marker for the PNG export — embedded as a data URI so the canvas is never
+  // tainted (drawing belt.png from file:// would block toBlob with a security error).
+  const beltImg = new Image();
+  beltImg.src = "data:image/png;base64,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";
 
   // Reference map, exactly as physically laid out.
   const MAP_REFERENCE =
@@ -512,7 +519,7 @@
     const hasBelt = d.visible && d.people.some(n => d.beltSet.has(n.toLowerCase()));
     if (!hasBelt) { legend.style.display = "none"; return; }
     legend.style.display = "flex";
-    legend.innerHTML = '<span class="item"><span class="belt-tag">&#9733;</span> = belt looter</span>';
+    legend.innerHTML = '<span class="item"><img class="ri" src="belt.png" alt="belt looter"> = belt looter</span>';
   }
 
   function buildText(d) {
@@ -587,7 +594,7 @@
         cell.style.borderColor = c.border;
         cell.innerHTML =
           '<span class="coord">' + coord + '</span>' +
-          (isBelt ? '<span class="belt-badge" title="belt looter">&#9733;</span>' : '') +
+          (isBelt ? '<img class="belt-badge ri" src="belt.png" alt="belt looter" title="belt looter">' : '') +
           '<span class="who">' + escapeHtml(who) + '</span>';
       }
       rowEl.appendChild(cell);
@@ -661,6 +668,7 @@
     canvas.height = height * S;
     const ctx = canvas.getContext("2d");
     ctx.scale(S, S);
+    ctx.imageSmoothingEnabled = false; // keep the pixel-art belt crisp
 
     // background
     ctx.fillStyle = g.bg;
@@ -718,13 +726,18 @@
         ctx.textBaseline = "top";
         ctx.fillText(coord, x + 7, y + 6);
 
-        // belt star (top-right)
+        // belt icon (top-right)
         if (who && d.beltSet.has(who.toLowerCase())) {
-          ctx.fillStyle = g.belt;
-          ctx.font = "12px system-ui, sans-serif";
-          ctx.textAlign = "right";
-          ctx.fillText("★", x + g.cellW - 6, y + 5);
-          ctx.textAlign = "left";
+          if (beltImg.complete && beltImg.naturalWidth) {
+            const ih = 15, iw = ih * beltImg.naturalWidth / beltImg.naturalHeight;
+            ctx.drawImage(beltImg, x + g.cellW - iw - 4, y + 4, iw, ih);
+          } else {
+            ctx.fillStyle = g.belt;
+            ctx.font = "12px system-ui, sans-serif";
+            ctx.textAlign = "right";
+            ctx.fillText("★", x + g.cellW - 6, y + 5);
+            ctx.textAlign = "left";
+          }
         }
 
         // name (bottom-left)
@@ -740,13 +753,21 @@
     // belt-looter key
     if (hasBelt) {
       const ly = gridTop + gridH + g.legendGap;
-      ctx.font = "13px system-ui, sans-serif";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = g.belt;
-      ctx.fillText("★", g.pad, ly + 11);
-      const sw = ctx.measureText("★ ").width;
+      let lx = g.pad;
+      if (beltImg.complete && beltImg.naturalWidth) {
+        const ih = 16, iw = ih * beltImg.naturalWidth / beltImg.naturalHeight;
+        ctx.drawImage(beltImg, lx, ly + 3, iw, ih);
+        lx += iw + 6;
+      } else {
+        ctx.font = "13px system-ui, sans-serif";
+        ctx.fillStyle = g.belt;
+        ctx.fillText("★", lx, ly + 11);
+        lx += ctx.measureText("★ ").width;
+      }
+      ctx.font = "13px system-ui, sans-serif";
       ctx.fillStyle = g.muted;
-      ctx.fillText("= belt looter", g.pad + sw, ly + 11);
+      ctx.fillText("= belt looter", lx, ly + 11);
     }
 
     return canvas;
@@ -766,22 +787,31 @@
   function copyMapImage() {
     const canvas = drawMapCanvas();
     if (!canvas) { flash("imgBtn", "Generate first"); return; }
-    canvas.toBlob(blob => {
-      if (navigator.clipboard && window.ClipboardItem) {
-        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
-          .then(() => flash("imgBtn", "Copied!"))
-          .catch(() => { downloadBlob(blob); flash("imgBtn", "Saved PNG"); });
-      } else {
-        downloadBlob(blob);
-        flash("imgBtn", "Saved PNG");
-      }
-    }, "image/png");
+    try {
+      canvas.toBlob(blob => {
+        if (navigator.clipboard && window.ClipboardItem) {
+          navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+            .then(() => flash("imgBtn", "Copied!"))
+            .catch(() => { downloadBlob(blob); flash("imgBtn", "Saved PNG"); });
+        } else {
+          downloadBlob(blob);
+          flash("imgBtn", "Saved PNG");
+        }
+      }, "image/png");
+    } catch (e) {
+      // canvas can be tainted by the belt image when opened via file:// — works on the live site
+      flash("imgBtn", "Use the live site");
+    }
   }
 
   function saveMapPng() {
     const canvas = drawMapCanvas();
     if (!canvas) { flash("pngBtn", "Generate first"); return; }
-    canvas.toBlob(blob => { downloadBlob(blob); flash("pngBtn", "Saved!"); }, "image/png");
+    try {
+      canvas.toBlob(blob => { downloadBlob(blob); flash("pngBtn", "Saved!"); }, "image/png");
+    } catch (e) {
+      flash("pngBtn", "Use the live site");
+    }
   }
 
   $("rulesBtn").addEventListener("click", () => $("rules").showModal());
