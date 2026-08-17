@@ -734,7 +734,7 @@
     if (nxShown) bottomH += (bottomH ? 10 : 0) + g.legRowH + (nxLines.length - 1) * 18;
 
     const mapGap = bottomH ? 24 : 0; // space between the map and the lists below it
-    const botPad = bottomH ? 0 : g.pad; // tight padding under the lists (the last row already
+    const botPad = bottomH ? 8 : g.pad; // tight padding under the lists (the last row already
     const height = gridTop + gridH + mapGap + bottomH; // reserves ~11px below its text)
 
     const canvas = document.createElement("canvas");
