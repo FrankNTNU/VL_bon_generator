@@ -735,7 +735,7 @@
 
     const mapGap = bottomH ? 24 : 0; // space between the map and the lists below it
     const botPad = bottomH ? 8 : g.pad; // tight padding under the lists (the last row already
-    const height = gridTop + gridH + mapGap + bottomH; // reserves ~11px below its text)
+    const height = gridTop + gridH + mapGap + bottomH + botPad; // reserves ~11px below its text)
 
     const canvas = document.createElement("canvas");
     canvas.width = width * S;
