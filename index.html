@@ -105,7 +105,7 @@
     resize: vertical;
   }
   textarea { min-height: 84px; }
-  .checks { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+  .checks { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
   .checks label { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 500; cursor: pointer; }
   .checks input { accent-color: var(--accent-2); }
   .row { display: flex; gap: 10px; margin-top: 18px; }
@@ -165,6 +165,14 @@
   .legend .cnt { color: var(--muted); }
   .belt-tag { color: var(--belt); font-weight: 700; }
 
+  /* On-screen preview = the exact exported image */
+  .preview { margin-bottom: 16px; }
+  .preview canvas { max-width: 100%; height: auto; display: block; border-radius: 10px; }
+
+  /* Dev mode (?dev): inspectable HTML version of the map */
+  .dev { margin-bottom: 16px; border-top: 1px dashed var(--border); padding-top: 12px; }
+  .dev-label { font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+
   .out {
     background: var(--panel-2);
     border: 1px solid var(--border);
@@ -207,8 +215,8 @@
 
     <h3><img class="ri" src="raffle.png" alt=""><img class="ri" src="nx_5k.png" alt="">Raffle &amp; NX eligibility</h3>
     <ul>
-      <li><strong>NX has 6 slots</strong> (up to 6 winners); the <strong>raffle has 1</strong> winner.</li>
-      <li><strong>Belt looters cannot win</strong> the raffle or NX.</li>
+      <li>The <strong>raffle has 1</strong> winner. <strong>NX has 6 slots total</strong>: each belt looter takes a <strong>guaranteed number</strong> (the <em>NX per belt looter</em> setting), and the remaining slots are drawn randomly.</li>
+      <li><strong>Belt looters cannot win</strong> the raffle or the random NX &mdash; those go only to non-belt-looters &mdash; but they still receive their guaranteed NX (counted within the 6).</li>
       <li>Among the remaining bonners, anyone who received <strong>more than the average number of boxes</strong> (i.e. got an extra box from an uneven split) <strong>also cannot win</strong> the raffle or NX.</li>
       <li>The <strong>raffle winner is removed from the NX pool</strong> &mdash; nobody can win both the raffle and NX.</li>
       <li>Winners are drawn only from the eligible bonners. If fewer than 6 are eligible, NX fills only those slots; if nobody is eligible, the section shows &ldquo;&mdash;&rdquo;.</li>
@@ -216,8 +224,9 @@
 
     <h3>Other</h3>
     <ul>
+      <li>The <strong>Bon map is always shown</strong>. <strong>Belts</strong>, <strong>Raffle</strong>, and <strong>NX</strong> are optional &mdash; each toggle adds or removes that section in <strong>both</strong> the image and the copied text.</li>
       <li><img class="ri" src="belt.png" alt="belt looter"> marks belt looters on the map.</li>
-      <li>Copy text is Discord-ready markdown; <em>Copy map image</em> puts the colored map on your clipboard as a PNG.</li>
+      <li>The on-screen map is the same image as <em>Copy map image</em>; <em>Copy text</em> gives the Discord-ready markdown.</li>
       <li>The timestamp records when the layout was generated.</li>
     </ul>
   </dialog>
@@ -228,18 +237,20 @@
       <label class="top">Bonners <span class="hint">(names; space/comma/newline separated)</span></label>
       <textarea id="bonners" placeholder="player1 playe2 playe3 ... beltlooter1 beltloote2 beltloote3"></textarea>
 
-      <label>Belt looters <span class="hint">(subset of bonners)</span></label>
+      <label>Belt looters <img class="ri" src="belt.png" alt=""> <span class="hint">(subset of bonners)</span></label>
       <textarea id="beltLooters" placeholder="beltlooter1 beltloote2 beltloote3"></textarea>
 
       <label>Boxes per belt looter</label>
       <input type="number" id="boxesPerLooter" min="0" max="30" value="1">
 
+      <label>NX per belt looter <img class="ri" src="nx_5k.png" alt=""> <span class="hint">(guaranteed, counts toward the 6)</span></label>
+      <input type="number" id="nxPerLooter" min="0" max="6" value="1">
+
       <div class="checks">
-        <label><input type="checkbox" id="cBon" checked> Bon</label>
+        <span class="hint">Include:</span>
         <label><input type="checkbox" id="cBelts" checked> Belts</label>
         <label><input type="checkbox" id="cRaffle" checked> Raffle</label>
         <label><input type="checkbox" id="cNx"> NX</label>
-        <label><input type="checkbox" id="cMap" checked> Bon Map</label>
       </div>
 
       <div class="row">
@@ -255,10 +266,8 @@
 
     <!-- OUTPUT -->
     <div class="card">
-      <div class="stats" id="stats" style="display:none"></div>
-      <div class="stamp" id="stamp" style="display:none"></div>
-      <div class="legend" id="legend" style="display:none"></div>
-      <div class="map" id="map" style="display:none"></div>
+      <div class="preview" id="preview"></div>
+      <div class="dev" id="devHtml" style="display:none"></div>
       <div class="out" id="out">Enter names and press Generate.</div>
     </div>
   </div>
@@ -275,10 +284,23 @@
   const NX_WINNERS = 6;
   const FENCE = "```";
   let lastRender = null; // snapshot of the most recent generation, for the image export
+  // Dev mode (?dev or #dev): also render the map as inspectable HTML DOM.
+  const DEV = new URLSearchParams(location.search).has("dev") || location.hash.replace(/^#/, "") === "dev";
   // Belt marker for the PNG export — embedded as a data URI so the canvas is never
   // tainted (drawing belt.png from file:// would block toBlob with a security error).
   const beltImg = new Image();
   beltImg.src = "data:image/png;base64,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";
+
+  // NX prize icon for the export (data URI, same taint-avoidance reason as the belt).
+  const nxImg = new Image();
+  nxImg.src = "data:image/png;base64,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";
+
+  // Raffle prize icon for the export (data URI).
+  const raffleImg = new Image();
+  raffleImg.src = "data:image/png;base64,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";
+
+  // If an icon finishes decoding after the first render, redraw the preview.
+  beltImg.onload = nxImg.onload = raffleImg.onload = () => { if (lastRender) renderPreview(); };
 
   // Reference map, exactly as physically laid out.
   const MAP_REFERENCE =
@@ -446,16 +468,16 @@
       sorted.forEach(g => (ownerByCoord[g.coord] = name));
     });
 
-    // belts: split among belt looters (or all bonners if none), one number per looter
+    // belts: split among belt looters (or all bonners if none), one line per belt
     const beltPool = beltLooters.length > 0 ? beltLooters : bonners;
     const beltSplit = splitEven(BELTS, beltPool.slice());
+    const beltsList = [];
+    beltPool.forEach(p => { for (let i = 0; i < beltSplit[p]; i++) beltsList.push(p); });
 
     const show = {
-      bon: $("cBon").checked,
       belts: $("cBelts").checked,
       raffle: $("cRaffle").checked,
-      nx: $("cNx").checked,
-      map: $("cMap").checked
+      nx: $("cNx").checked
     };
 
     // raffle + NX pool: belt looters are excluded; and among the remaining bonners,
@@ -470,7 +492,15 @@
     const nxPool = (show.raffle && raffleWinner)
       ? eligible.filter(p => p !== raffleWinner)
       : eligible;
-    const nxWinners = shuffle(nxPool).slice(0, Math.min(NX_WINNERS, nxPool.length));
+    // NX: 6 total. Belt looters take a guaranteed number each (filled first, capped at 6);
+    // any remaining slots are drawn randomly from the eligible non-belt-looters.
+    const nxPerLooter = parseInt($("nxPerLooter").value, 10) || 0;
+    const guaranteedNx = [];
+    beltLooters.forEach(l => { for (let i = 0; i < nxPerLooter; i++) guaranteedNx.push(l); });
+    const cappedGuaranteed = guaranteedNx.slice(0, NX_WINNERS);
+    const randomSlots = NX_WINNERS - cappedGuaranteed.length;
+    const nxWinners = shuffle(nxPool).slice(0, Math.min(randomSlots, nxPool.length));
+    const nxList = cappedGuaranteed.concat(nxWinners); // guaranteed belt-looter NX first, then random winners
 
     // distinct color per player
     const colorByName = {};
@@ -478,108 +508,72 @@
 
     const stamp = timestamp(new Date());
 
-    renderStats({ bonners, beltLooters, counts, beltShown: show.belts });
-    $("stamp").style.display = "block";
-    $("stamp").textContent = "Generated " + stamp;
-    renderLegend({ people, counts, beltSet, colorByName, visible: show.map });
-    renderMap({ ownerByCoord, beltSet, colorByName, visible: show.map });
-    const text = buildText({ people, boxesByPerson, beltPool, beltSplit, raffleWinner, nxWinners, stamp, show });
+    const text = buildText({ people, boxesByPerson, beltsList, raffleWinner, nxList, stamp, show });
     $("out").textContent = text;
 
     lastRender = {
       people, ownerByCoord, counts, colorByName,
       beltSet, nBon: bonners.length, nBelt: beltLooters.length,
-      beltShown: show.belts, stamp
+      stamp,
+      beltsShown: show.belts, beltsList,
+      raffleShown: show.raffle, raffleWinner,
+      nxShown: show.nx, nxList
     };
+
+    renderPreview(); // the on-screen preview IS the exact exported image
   }
 
-  // Evenly-spaced hues so every player is visually distinct.
-  function colorFor(i, total) {
-    const hue = Math.round((i * 360) / Math.max(total, 1));
-    return {
-      bg: `hsla(${hue}, 70%, 55%, 0.30)`,
-      border: `hsl(${hue}, 78%, 64%)`,
-      solid: `hsl(${hue}, 70%, 55%)`
-    };
+  // Render the generated map image (same canvas as the PNG export) into the page.
+  function renderPreview() {
+    if (!lastRender) return;
+    const canvas = drawMapCanvas();
+    const preview = $("preview");
+    preview.innerHTML = "";
+    if (canvas) preview.appendChild(canvas);
+    if (DEV) renderDevHtml(lastRender);
   }
 
-  function renderStats(d) {
-    const stats = $("stats");
-    stats.style.display = "flex";
-    const items = [
-      { num: d.bonners.length, lbl: "Bonners" },
-      { num: d.beltLooters.length, lbl: "Belt looters" }
-    ];
-    stats.innerHTML = items.map(it =>
-      `<div class="stat"><div class="num">${it.num}</div><div class="lbl">${it.lbl}</div></div>`
-    ).join("");
-  }
+  // Dev mode: render an inspectable HTML version of the map + lists (right-click → Inspect).
+  function renderDevHtml(d) {
+    const host = $("devHtml");
+    host.style.display = "block";
+    host.innerHTML = "";
 
-  function renderLegend(d) {
-    const legend = $("legend");
-    const hasBelt = d.visible && d.people.some(n => d.beltSet.has(n.toLowerCase()));
-    if (!hasBelt) { legend.style.display = "none"; return; }
-    legend.style.display = "flex";
-    legend.innerHTML = '<span class="item"><img class="ri" src="belt.png" alt="belt looter"> = belt looter</span>';
-  }
+    const label = document.createElement("div");
+    label.className = "dev-label";
+    label.textContent = "Dev · inspectable HTML map";
+    host.appendChild(label);
 
-  function buildText(d) {
-    const parts = [];
-
-    if (d.show.bon) {
-      const pad = d.people.reduce((m, n) => Math.max(m, n.length), 0) + 2;
-      const rows = d.people.map(name => {
-        const boxes = d.boxesByPerson[name].map(c => c.toLowerCase()).join(",");
-        return name.padEnd(pad) + boxes;
-      });
-      parts.push("Bon:\n" + FENCE + "\n" + rows.join("\n") + "\n" + FENCE);
-    }
-
-    if (d.show.belts) {
-      const beltLines = [];
-      d.beltPool.forEach(p => {
-        for (let i = 0; i < d.beltSplit[p]; i++) beltLines.push(p);
-      });
-      parts.push("Belts:\n" + FENCE + "\n" + beltLines.join("\n") + "\n" + FENCE);
-    }
-
-    if (d.show.raffle) {
-      parts.push("Raffle:\n" + FENCE + "\n" + (d.raffleWinner || "—") + "\n" + FENCE);
-    }
-
-    if (d.show.nx) {
-      parts.push("NX:\n" + FENCE + "\n" + (d.nxWinners.length ? d.nxWinners.join("\n") : "—") + "\n" + FENCE);
-    }
-
-    if (d.show.map) {
-      parts.push("Bon Map:\n" + FENCE + "\n" + MAP_REFERENCE + "\n" + FENCE);
-    }
-
-    if (d.stamp) parts.push("Generated " + d.stamp);
-
-    return parts.join("\n");
-  }
-
-  function renderMap(d) {
-    const map = $("map");
-    if (!d.visible) { map.style.display = "none"; return; }
-    map.style.display = "flex";
-    map.innerHTML = "";
-
-    // rows: [A,B], [C,D], [E,F]
+    const map = document.createElement("div");
+    map.className = "map";
     for (let r = 0; r < 3; r++) {
-      const rowEl = document.createElement("div");
-      rowEl.className = "map-row";
-      addStrip(rowEl, LETTERS[r * 2], d);
+      const row = document.createElement("div");
+      row.className = "map-row";
+      addDevStrip(row, LETTERS[r * 2], d);
       const gap = document.createElement("div");
       gap.className = "gap";
-      rowEl.appendChild(gap);
-      addStrip(rowEl, LETTERS[r * 2 + 1], d);
-      map.appendChild(rowEl);
+      row.appendChild(gap);
+      addDevStrip(row, LETTERS[r * 2 + 1], d);
+      map.appendChild(row);
     }
+    host.appendChild(map);
+
+    const lists = document.createElement("div");
+    lists.className = "legend";
+    const items = [];
+    if (d.people.some(n => d.beltSet.has(n.toLowerCase())))
+      items.push('<span class="item"><img class="ri" src="belt.png" alt="belt looter" style="height:16px"> = belt looter</span>');
+    if (d.beltsShown && d.beltsList.length)
+      items.push('<span class="item"><strong>Belts:</strong>&nbsp;' + escapeHtml(d.beltsList.join(", ")) + '</span>');
+    if (d.raffleShown && d.raffleWinner)
+      items.push('<span class="item"><strong>Raffle winner:</strong>&nbsp;' + escapeHtml(d.raffleWinner) + '</span>');
+    if (d.nxShown && d.nxList.length)
+      items.push('<span class="item"><strong>NX winners:</strong>&nbsp;' + escapeHtml(d.nxList.join(", ")) + '</span>');
+    lists.innerHTML = items.join("");
+    host.appendChild(lists);
   }
 
-  function addStrip(rowEl, letter, d) {
+  function addDevStrip(row, letter, d) {
     for (let n = 1; n <= PER_STRIP; n++) {
       const coord = letter + n;
       const who = d.ownerByCoord[coord];
@@ -593,13 +587,55 @@
         cell.className = "cell";
         cell.style.background = c.bg;
         cell.style.borderColor = c.border;
+        cell.dataset.coord = coord;
+        cell.dataset.owner = who;
         cell.innerHTML =
           '<span class="coord">' + coord + '</span>' +
           (isBelt ? '<img class="belt-badge ri" src="belt.png" alt="belt looter" title="belt looter">' : '') +
           '<span class="who">' + escapeHtml(who) + '</span>';
       }
-      rowEl.appendChild(cell);
+      row.appendChild(cell);
     }
+  }
+
+  // Evenly-spaced hues so every player is visually distinct.
+  function colorFor(i, total) {
+    const hue = Math.round((i * 360) / Math.max(total, 1));
+    return {
+      bg: `hsla(${hue}, 70%, 55%, 0.30)`,
+      border: `hsl(${hue}, 78%, 64%)`,
+      solid: `hsl(${hue}, 70%, 55%)`
+    };
+  }
+
+  function buildText(d) {
+    const parts = [];
+
+    // Bon (box assignments) is always included — it's the core output.
+    {
+      const pad = d.people.reduce((m, n) => Math.max(m, n.length), 0) + 2;
+      const rows = d.people.map(name => {
+        const boxes = d.boxesByPerson[name].map(c => c.toLowerCase()).join(",");
+        return name.padEnd(pad) + boxes;
+      });
+      parts.push("Bon:\n" + FENCE + "\n" + rows.join("\n") + "\n" + FENCE);
+    }
+
+    if (d.show.belts) {
+      parts.push("Belts:\n" + FENCE + "\n" + (d.beltsList.length ? d.beltsList.join("\n") : "—") + "\n" + FENCE);
+    }
+
+    if (d.show.raffle) {
+      parts.push("Raffle:\n" + FENCE + "\n" + (d.raffleWinner || "—") + "\n" + FENCE);
+    }
+
+    if (d.show.nx) {
+      parts.push("NX:\n" + FENCE + "\n" + (d.nxList.length ? d.nxList.join("\n") : "—") + "\n" + FENCE);
+    }
+
+    if (d.stamp) parts.push("Generated " + d.stamp);
+
+    return parts.join("\n");
   }
 
   function escapeHtml(s) {
@@ -641,6 +677,21 @@
     return s + "…";
   }
 
+  // Wrap names into comma-joined lines. The first line may be shorter (firstMaxW) to
+  // leave room for an inline label; later lines use restMaxW.
+  function wrapNames(ctx, names, firstMaxW, restMaxW) {
+    if (restMaxW == null) restMaxW = firstMaxW;
+    const lines = [];
+    let cur = "", maxW = firstMaxW;
+    names.forEach(n => {
+      const test = cur ? cur + ", " + n : n;
+      if (cur && ctx.measureText(test).width > maxW) { lines.push(cur); cur = n; maxW = restMaxW; }
+      else cur = test;
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
   function xForCol(c) {
     const g = IMG;
     const leftBlock = 5 * g.cellW + 4 * g.gap;
@@ -658,11 +709,33 @@
     const gridTop = g.pad + g.titleH + g.statsH + g.headGap;
     const gridH = 3 * g.cellH + 2 * g.gap;
 
-    // legend is just the belt-looter key (one row)
+    // bottom sections: belt-looter key, then (optionally) Belts / Raffle / NX
     const hasBelt = d.people.some(n => d.beltSet.has(n.toLowerCase()));
-    const legendH = hasBelt ? g.legRowH : 0;
+    const beltsShown = d.beltsShown && d.beltsList && d.beltsList.length > 0;
+    const raffleShown = d.raffleShown && d.raffleWinner;
+    const nxShown = d.nxShown && d.nxList && d.nxList.length > 0;
 
-    const height = gridTop + gridH + g.legendGap + legendH + g.pad;
+    // pre-wrap inline name lists (label on the first line, names in white)
+    const meas = document.createElement("canvas").getContext("2d");
+    const iconW = img => (img.complete && img.naturalWidth) ? (16 * img.naturalWidth / img.naturalHeight) : 18;
+    const wrapFor = (label, icon, names) => {
+      meas.font = "600 13px system-ui, sans-serif";
+      const labelW = iconW(icon) + 6 + meas.measureText(label + "  ").width;
+      meas.font = "13px system-ui, sans-serif";
+      return wrapNames(meas, names, gridW - labelW, gridW);
+    };
+    const beltsLines = beltsShown ? wrapFor("Belts:", beltImg, d.beltsList) : [];
+    const nxLines = nxShown ? wrapFor("NX winners:", nxImg, d.nxList) : [];
+
+    let bottomH = 0;
+    if (hasBelt) bottomH += g.legRowH;
+    if (beltsShown) bottomH += (bottomH ? 10 : 0) + g.legRowH + (beltsLines.length - 1) * 18;
+    if (raffleShown) bottomH += (bottomH ? 10 : 0) + g.legRowH;
+    if (nxShown) bottomH += (bottomH ? 10 : 0) + g.legRowH + (nxLines.length - 1) * 18;
+
+    const mapGap = bottomH ? 24 : 0; // space between the map and the lists below it
+    const botPad = bottomH ? 0 : g.pad; // tight padding under the lists (the last row already
+    const height = gridTop + gridH + mapGap + bottomH; // reserves ~11px below its text)
 
     const canvas = document.createElement("canvas");
     canvas.width = width * S;
@@ -751,25 +824,35 @@
       }
     }
 
-    // belt-looter key
-    if (hasBelt) {
-      const ly = gridTop + gridH + g.legendGap;
-      ctx.textBaseline = "middle";
-      let lx = g.pad;
-      if (beltImg.complete && beltImg.naturalWidth) {
-        const ih = 16, iw = ih * beltImg.naturalWidth / beltImg.naturalHeight;
-        ctx.drawImage(beltImg, lx, ly + 3, iw, ih);
-        lx += iw + 6;
-      } else {
-        ctx.font = "13px system-ui, sans-serif";
-        ctx.fillStyle = g.belt;
-        ctx.fillText("★", lx, ly + 11);
-        lx += ctx.measureText("★ ").width;
+    // bottom sections
+    let by = gridTop + gridH + mapGap;
+    let drawnAny = false;
+    ctx.textBaseline = "middle";
+
+    // one section: icon + bold label + white names (wrapped)
+    const drawInline = (icon, label, lines) => {
+      if (drawnAny) by += 10;
+      let hx = g.pad;
+      if (icon.complete && icon.naturalWidth) {
+        const iw = 16 * icon.naturalWidth / icon.naturalHeight;
+        ctx.drawImage(icon, hx, by + 3, iw, 16);
+        hx += iw + 6;
       }
+      ctx.font = "600 13px system-ui, sans-serif";
+      ctx.fillStyle = g.text;
+      ctx.fillText(label, hx, by + 11);
+      hx += ctx.measureText(label + "  ").width;
       ctx.font = "13px system-ui, sans-serif";
-      ctx.fillStyle = g.muted;
-      ctx.fillText("= belt looter", lx, ly + 11);
-    }
+      ctx.fillStyle = g.text;
+      let ly = by + 11;
+      lines.forEach((line, i) => { ctx.fillText(line, i === 0 ? hx : g.pad, ly); ly += 18; });
+      by += g.legRowH + (lines.length - 1) * 18;
+      drawnAny = true;
+    };
+
+    if (beltsShown) drawInline(beltImg, "Belts:", beltsLines);
+    if (raffleShown) drawInline(raffleImg, "Raffle winner:", [d.raffleWinner]);
+    if (nxShown) drawInline(nxImg, "NX winners:", nxLines);
 
     return canvas;
   }
@@ -842,9 +925,10 @@
       bonners: $("bonners").value,
       beltLooters: $("beltLooters").value,
       perLooter: $("boxesPerLooter").value,
+      nxPerLooter: $("nxPerLooter").value,
       checks: {
-        bon: $("cBon").checked, belts: $("cBelts").checked,
-        raffle: $("cRaffle").checked, nx: $("cNx").checked, map: $("cMap").checked
+        belts: $("cBelts").checked,
+        raffle: $("cRaffle").checked, nx: $("cNx").checked
       }
     };
   }
@@ -853,18 +937,17 @@
     if (s.bonners != null) $("bonners").value = s.bonners;
     if (s.beltLooters != null) $("beltLooters").value = s.beltLooters;
     if (s.perLooter != null) $("boxesPerLooter").value = s.perLooter;
+    if (s.nxPerLooter != null) $("nxPerLooter").value = s.nxPerLooter;
     if (s.checks) {
-      $("cBon").checked = !!s.checks.bon;
       $("cBelts").checked = !!s.checks.belts;
       $("cRaffle").checked = !!s.checks.raffle;
       $("cNx").checked = !!s.checks.nx;
-      $("cMap").checked = !!s.checks.map;
     }
   }
   function saveLast() { lsSet(LS_LAST, currentState()); }
 
   // persist on any edit
-  ["bonners", "beltLooters", "boxesPerLooter", "cBon", "cBelts", "cRaffle", "cNx", "cMap"]
+  ["bonners", "beltLooters", "boxesPerLooter", "nxPerLooter", "cBelts", "cRaffle", "cNx"]
     .forEach(id => {
       $(id).addEventListener("input", saveLast);
       $(id).addEventListener("change", saveLast);
