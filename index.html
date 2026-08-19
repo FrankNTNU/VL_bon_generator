@@ -215,9 +215,11 @@
 
     <h3><img class="ri" src="raffle.png" alt=""><img class="ri" src="nx_5k.png" alt="">Raffle &amp; NX eligibility</h3>
     <ul>
-      <li>The <strong>raffle has 1</strong> winner. <strong>NX has 6 slots total</strong>: each belt looter takes a <strong>guaranteed number</strong> (the <em>NX per belt looter</em> setting), and the remaining slots are drawn randomly.</li>
-      <li><strong>Belt looters cannot win</strong> the raffle or the random NX &mdash; those go only to non-belt-looters &mdash; but they still receive their guaranteed NX (counted within the 6).</li>
-      <li>Among the remaining bonners, anyone who received <strong>more than the average number of boxes</strong> (i.e. got an extra box from an uneven split) <strong>also cannot win</strong> the raffle or NX.</li>
+      <li>The <strong>raffle has 1</strong> winner. <strong>NX has 6 slots total</strong>, filled in priority order.</li>
+      <li><strong>Bonners with fewer than the average number of boxes get NX first</strong> &mdash; the <strong>fewest boxes take top priority</strong> (ties broken randomly). This <strong>outranks the belt-looter NX</strong>, so belt-looter NX is <em>no longer guaranteed</em>: if enough short-changed bonners exist, they fill the 6 slots first.</li>
+      <li>Belt looters then take their per-looter NX (the <em>NX per belt looter</em> setting) from whatever slots remain; any slots still open are drawn randomly from the remaining eligible bonners.</li>
+      <li><strong>Belt looters cannot win</strong> the raffle or the random NX &mdash; those go only to non-belt-looters.</li>
+      <li>Among the remaining bonners, anyone who received <strong>more than the average number of boxes</strong> (i.e. got an extra box from an uneven split) <strong>cannot win</strong> the raffle or NX.</li>
       <li>The <strong>raffle winner is removed from the NX pool</strong> &mdash; nobody can win both the raffle and NX.</li>
       <li>Winners are drawn only from the eligible bonners. If fewer than 6 are eligible, NX fills only those slots; if nobody is eligible, the section shows &ldquo;&mdash;&rdquo;.</li>
     </ul>
@@ -492,15 +494,23 @@
     const nxPool = (show.raffle && raffleWinner)
       ? eligible.filter(p => p !== raffleWinner)
       : eligible;
-    // NX: 6 total. Belt looters take a guaranteed number each (filled first, capped at 6);
-    // any remaining slots are drawn randomly from the eligible non-belt-looters.
+    // NX: 6 total, filled in priority order.
+    // 1) Bonners who got FEWER than the average number of boxes take TOP priority —
+    //    fewest boxes first (ties broken randomly). This now outranks the belt-looter
+    //    guarantee, so belt-looter NX is no longer strictly guaranteed.
+    // 2) Belt looters then take their per-looter NX with whatever slots remain.
+    // 3) Any slots still open are drawn randomly from the remaining eligible bonners
+    //    (those sitting exactly at the average).
     const nxPerLooter = parseInt($("nxPerLooter").value, 10) || 0;
+    const priorityBonners = shuffle(nxPool.filter(o => counts[o] < avgBoxes))
+      .sort((a, b) => counts[a] - counts[b]); // fewest boxes first; shuffle gives random tiebreak
     const guaranteedNx = [];
     beltLooters.forEach(l => { for (let i = 0; i < nxPerLooter; i++) guaranteedNx.push(l); });
-    const cappedGuaranteed = guaranteedNx.slice(0, NX_WINNERS);
-    const randomSlots = NX_WINNERS - cappedGuaranteed.length;
-    const nxWinners = shuffle(nxPool).slice(0, Math.min(randomSlots, nxPool.length));
-    const nxList = cappedGuaranteed.concat(nxWinners); // guaranteed belt-looter NX first, then random winners
+    const fillerBonners = shuffle(nxPool.filter(o => counts[o] >= avgBoxes)); // exactly-average bonners
+    const nxList = priorityBonners
+      .concat(guaranteedNx)
+      .concat(fillerBonners)
+      .slice(0, NX_WINNERS); // fewer-box bonners first, then belt-looter NX, then random fill
 
     // distinct color per player
     const colorByName = {};
