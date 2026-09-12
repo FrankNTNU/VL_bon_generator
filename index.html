@@ -439,11 +439,14 @@
     if (bonners.length < 1) return fail("Enter at least one bonner.");
     if (bonners.length > TOTAL_BOXES) return fail(`Too many bonners (max ${TOTAL_BOXES}).`);
 
-    const bonnerSet = new Set(bonners.map(b => b.toLowerCase()));
+    // Map each bonner's lowercase key to its canonical (as-typed) name, so belt
+    // looters typed in a different case still resolve to the same person.
+    const bonnerByKey = new Map(bonners.map(b => [b.toLowerCase(), b]));
     const beltLooters = [];
     for (const n of beltLootersRaw) {
-      if (!bonnerSet.has(n.toLowerCase())) return fail(`Belt looter "${n}" is not in the bonner list.`);
-      beltLooters.push(n);
+      const canon = bonnerByKey.get(n.toLowerCase());
+      if (!canon) return fail(`Belt looter "${n}" is not in the bonner list.`);
+      beltLooters.push(canon);
     }
 
     const beltCost = beltLooters.length * perLooter;
