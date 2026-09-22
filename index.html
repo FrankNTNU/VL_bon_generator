@@ -55,6 +55,23 @@
     overflow: auto;
   }
   .rules::backdrop { background: rgba(8, 12, 20, 0.6); }
+
+  /* Styled confirm dialog (replaces the native browser confirm) */
+  .confirm {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px 20px;
+    max-width: 380px;
+    width: calc(100% - 40px);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  }
+  .confirm::backdrop { background: rgba(8, 12, 20, 0.6); }
+  .confirm h2 { font-size: 16px; margin: 0 0 8px; }
+  .confirm p { font-size: 13px; line-height: 1.5; color: var(--muted); margin: 0 0 20px; }
+  .confirm-actions { display: flex; gap: 10px; }
+  .confirm-actions button { flex: 1; padding: 10px 14px; }
   .rules-head {
     position: sticky;
     top: 0;
@@ -83,8 +100,39 @@
   .rules em { color: var(--muted); font-style: normal; }
   .rules .ri { height: 16px; width: auto; vertical-align: -4px; margin: 0 2px; image-rendering: pixelated; image-rendering: crisp-edges; }
   .rules h3 .ri { height: 20px; vertical-align: -5px; margin: 0 6px 0 0; }
-  .layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
-  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .layout { display: grid; grid-template-columns: var(--leftW, 380px) 10px minmax(0, 1fr); gap: 0 8px; align-items: start; }
+  /* Draggable divider between the input section and the right panel */
+  .splitter {
+    align-self: stretch;
+    min-height: 120px;
+    width: 10px;
+    cursor: col-resize;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .splitter::before { /* the divider line */
+    content: "";
+    width: 2px;
+    height: 100%;
+    background: var(--border);
+    border-radius: 2px;
+    transition: background .15s;
+  }
+  .splitter::after { /* faint grip dots, brighten on hover */
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 24px;
+    border-radius: 3px;
+    background: radial-gradient(circle, var(--muted) 1px, transparent 1.2px) center / 4px 6px repeat-y;
+    opacity: .3;
+    transition: opacity .15s;
+  }
+  .splitter:hover::before, .splitter.dragging::before { background: var(--accent-2); }
+  .splitter:hover::after, .splitter.dragging::after { opacity: .75; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .splitter { display: none; } }
   .card {
     background: var(--panel);
     border: 1px solid var(--border);
@@ -168,6 +216,38 @@
   /* On-screen preview = the exact exported image */
   .preview { margin-bottom: 16px; }
   .preview canvas { max-width: 100%; height: auto; display: block; border-radius: 10px; }
+  /* full-screen map view (double-click the image) */
+  .preview:fullscreen {
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    margin: 0;
+  }
+  .preview:fullscreen canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; cursor: zoom-out; }
+
+  /* Mock progress indicator shown while a map is "calculating": a slim bar only */
+  .progress { padding: 6px 0 12px; }
+  .progress .bar {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress .bar span {
+    display: block;
+    height: 100%;
+    width: 40%;
+    background: var(--accent);
+    border-radius: 999px;
+    animation: slide 0.9s ease-in-out infinite;
+  }
+  @keyframes slide {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(250%); }
+  }
 
   /* Dev mode (?dev): inspectable HTML version of the map */
   .dev { margin-bottom: 16px; border-top: 1px dashed var(--border); padding-top: 12px; }
@@ -182,8 +262,11 @@
     font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
     font-size: 13px;
     line-height: 1.5;
-    max-height: 520px;
+    height: 300px;      /* short by default so the box scrolls internally, not the page */
+    min-height: 120px;
+    max-height: 85vh;   /* drag the grip to expand up to most of the viewport */
     overflow: auto;
+    resize: vertical;   /* user-expandable text portion */
   }
 </style>
 </head>
@@ -237,6 +320,15 @@
     </ul>
   </dialog>
 
+  <dialog class="confirm" id="confirm">
+    <h2 id="confirmTitle">Replace current map?</h2>
+    <p id="confirmMsg">Generating will discard the map on screen and create a new layout.</p>
+    <div class="confirm-actions">
+      <button class="btn-ghost" id="confirmCancel">Cancel</button>
+      <button class="btn-primary" id="confirmOk">Generate</button>
+    </div>
+  </dialog>
+
   <div class="layout">
     <!-- CONTROLS -->
     <div class="card">
@@ -273,6 +365,9 @@
       </div>
       <div class="err" id="err"></div>
     </div>
+
+    <!-- Draggable divider -->
+    <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="Resize panels"></div>
 
     <!-- OUTPUT -->
     <div class="card">
@@ -566,6 +661,7 @@
     };
 
     renderPreview(); // the on-screen preview IS the exact exported image
+    return true;     // signal success to the click handler
   }
 
   // Render the generated map image (same canvas as the PNG export) into the page.
@@ -574,7 +670,16 @@
     const canvas = drawMapCanvas();
     const preview = $("preview");
     preview.innerHTML = "";
-    if (canvas) preview.appendChild(canvas);
+    if (canvas) {
+      // double-click the map to toggle full screen
+      canvas.title = "Double-click for full screen";
+      canvas.style.cursor = "zoom-in";
+      canvas.addEventListener("dblclick", () => {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else if (preview.requestFullscreen) preview.requestFullscreen();
+      });
+      preview.appendChild(canvas);
+    }
     if (DEV) renderDevHtml(lastRender);
   }
 
@@ -946,7 +1051,70 @@
   $("rulesClose").addEventListener("click", () => $("rules").close());
   $("rules").addEventListener("click", (e) => { if (e.target === $("rules")) $("rules").close(); });
 
-  $("genBtn").addEventListener("click", generate);
+  // Show a mock ~1s "calculating" indicator in the right panel, then generate.
+  function showProgress() {
+    const preview = $("preview");
+    preview.innerHTML =
+      '<div class="progress" role="status" aria-live="polite" aria-label="Calculating layout">' +
+      '<div class="bar"><span></span></div>' +
+      '</div>';
+  }
+
+  function runGeneration() {
+    const btn = $("genBtn");
+    btn.disabled = true;
+    showProgress();
+    // Yield one frame so the bar paints, then run the real work. The indicator is
+    // visible for exactly as long as generation actually takes — no fixed delay.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const ok = generate();      // renderPreview() replaces the bar on success
+      if (!ok) $("preview").innerHTML = ""; // validation failed: clear the bar
+      btn.disabled = false;
+    }));
+  }
+
+  function onGenerate() {
+    // Warn (via the styled dialog) before discarding a map that's already on screen.
+    if (lastRender) $("confirm").showModal();
+    else runGeneration();
+  }
+
+  $("genBtn").addEventListener("click", onGenerate);
+  $("confirmOk").addEventListener("click", () => { $("confirm").close(); runGeneration(); });
+  $("confirmCancel").addEventListener("click", () => $("confirm").close());
+  $("confirm").addEventListener("click", (e) => { if (e.target === $("confirm")) $("confirm").close(); });
+
+  // Draggable split between the input section and the right panel.
+  (function initSplitter() {
+    const layout = document.querySelector(".layout");
+    const splitter = $("splitter");
+    if (!layout || !splitter) return;
+    const MIN_LEFT = 280; // the input section stays usable — never narrower than this
+    const RIGHT_EDGE = 40; // the right panel may shrink to a sliver
+    let dragging = false;
+
+    function onMove(e) {
+      if (!dragging) return;
+      const rect = layout.getBoundingClientRect();
+      const max = Math.max(MIN_LEFT, rect.width - RIGHT_EDGE);
+      const w = Math.max(MIN_LEFT, Math.min(max, e.clientX - rect.left));
+      layout.style.setProperty("--leftW", w + "px");
+    }
+    function stop() {
+      if (!dragging) return;
+      dragging = false;
+      splitter.classList.remove("dragging");
+      document.body.style.userSelect = "";
+    }
+    splitter.addEventListener("mousedown", (e) => {
+      dragging = true;
+      splitter.classList.add("dragging");
+      document.body.style.userSelect = "none";
+      e.preventDefault();
+    });
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", stop);
+  })();
   $("copyBtn").addEventListener("click", () => {
     navigator.clipboard.writeText($("out").textContent).then(() => flash("copyBtn", "Copied!"));
   });
