@@ -142,6 +142,52 @@
   label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
   label.top { margin-top: 0; }
   .hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+  .count {
+    display: inline-block;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-2);
+  }
+  /* Info (i) button + hover/click tooltip */
+  .info-wrap { position: relative; display: inline-block; }
+  .infobtn {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--muted);
+    font: italic 700 11px/1 Georgia, "Times New Roman", serif;
+    cursor: pointer;
+    vertical-align: middle;
+  }
+  .infobtn:hover, .info-wrap.open .infobtn { border-color: var(--accent-2); color: var(--text); }
+  .tip {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    z-index: 5;
+    width: max-content;
+    max-width: 240px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--text);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+    white-space: normal;
+  }
+  .info-wrap:hover .tip, .info-wrap.open .tip { display: block; }
   textarea, input[type=number] {
     width: 100%;
     background: var(--panel-2);
@@ -332,16 +378,16 @@
   <div class="layout">
     <!-- CONTROLS -->
     <div class="card">
-      <label class="top">Bonners <span class="hint">(names; space/comma/newline separated)</span></label>
+      <label class="top">Bonners <span class="count" id="bonnersCount">0</span> <span class="hint">(names; space/comma/newline separated)</span></label>
       <textarea id="bonners" placeholder="player1 playe2 playe3 ... beltlooter1 beltloote2 beltloote3"></textarea>
 
-      <label>Belt looters <img class="ri" src="belt.png" alt=""> <span class="hint">(subset of bonners)</span></label>
+      <label>Belt looters <img class="ri" src="belt.png" alt=""> <span class="count" id="beltLootersCount">0</span> <span class="hint">(subset of bonners)</span></label>
       <textarea id="beltLooters" placeholder="beltlooter1 beltloote2 beltloote3"></textarea>
 
-      <label>Boxes per belt looter</label>
+      <label>Boxes per belt looter <span class="info-wrap"><button type="button" class="infobtn" aria-label="About boxes per belt looter">i</button><span class="tip">Guaranteed each; rest split among others.</span></span></label>
       <input type="number" id="boxesPerLooter" min="0" max="30" value="1">
 
-      <label>NX per belt looter <img class="ri" src="nx_5k.png" alt=""> <span class="hint">(counts toward the 6)</span></label>
+      <label>NX per belt looter <img class="ri" src="nx_5k.png" alt=""> <span class="info-wrap"><button type="button" class="infobtn" aria-label="About NX per belt looter">i</button><span class="tip">Guaranteed each, from the 6 total.</span></span></label>
       <input type="number" id="nxPerLooter" min="0" max="6" value="1">
 
       <div class="checks">
@@ -1158,6 +1204,29 @@
   }
   function saveLast() { lsSet(LS_LAST, currentState()); }
 
+  // live person counts next to the Bonners / Belt looters fields
+  function updateCounts() {
+    $("bonnersCount").textContent = parseNames($("bonners").value).length;
+    $("beltLootersCount").textContent = parseNames($("beltLooters").value).length;
+  }
+  $("bonners").addEventListener("input", updateCounts);
+  $("beltLooters").addEventListener("input", updateCounts);
+
+  // info (i) tooltips: hover shows via CSS; click toggles (for touch), outside click closes
+  document.querySelectorAll(".infobtn").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const wrap = btn.parentElement;
+      const open = wrap.classList.contains("open");
+      document.querySelectorAll(".info-wrap.open").forEach(w => w.classList.remove("open"));
+      if (!open) wrap.classList.add("open");
+    });
+  });
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".info-wrap.open").forEach(w => w.classList.remove("open"));
+  });
+
   // persist on any edit
   ["bonners", "beltLooters", "boxesPerLooter", "nxPerLooter", "cBelts", "cRaffle", "cNx"]
     .forEach(id => {
@@ -1170,9 +1239,10 @@
   if (saved) {
     applyState(saved);
   } else {
-    $("bonners").value = "player1 playe2 playe3 playe4 playe5 player6 player7 player8 player9 player10 player11 player12 beltlooter1 beltloote2 beltloote3";
-    $("beltLooters").value = "beltlooter1 beltloote2 beltloote3";
+    $("bonners").value = "player1 player2 player3 player4 player5 player6 player7 player8 player9 player10 player11 player12 beltlooter1 beltlooter2 beltlooter3";
+    $("beltLooters").value = "beltlooter1 beltlooter2 beltlooter3";
   }
+  updateCounts();
 })();
 </script>
 
