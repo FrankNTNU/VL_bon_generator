@@ -717,10 +717,10 @@
     const preview = $("preview");
     preview.innerHTML = "";
     if (canvas) {
-      // double-click the map to toggle full screen
-      canvas.title = "Double-click for full screen";
+      // click the map to toggle full screen
+      canvas.title = "Click for full screen";
       canvas.style.cursor = "zoom-in";
-      canvas.addEventListener("dblclick", () => {
+      canvas.addEventListener("click", () => {
         if (document.fullscreenElement) document.exitFullscreen();
         else if (preview.requestFullscreen) preview.requestFullscreen();
       });
