@@ -966,9 +966,30 @@
     const beltsLines = beltsShown ? wrapFor("Belts:", beltImg, d.beltsList) : [];
     const nxLines = nxShown ? wrapFor("NX winners:", nxImg, d.nxList) : [];
 
+    // Raffle prizes all flow on ONE line (icon + label + winner per segment),
+    // wrapping to another line only if they don't fit the grid width.
+    const RAFFLE_SEP = 22; // gap between prize segments on the same line
+    const raffleSegW = w => {
+      meas.font = "600 13px system-ui, sans-serif";
+      const labW = meas.measureText(w.label + ": ").width;
+      meas.font = "13px system-ui, sans-serif";
+      return iconW(w.img) + 6 + labW + meas.measureText(w.name || "—").width;
+    };
+    const raffleRows = [];
+    if (raffleShown) {
+      let row = [], rowW = 0;
+      raffleWinners.forEach(w => {
+        const segW = raffleSegW(w);
+        if (row.length && rowW + RAFFLE_SEP + segW > gridW) { raffleRows.push(row); row = []; rowW = 0; }
+        rowW += (row.length ? RAFFLE_SEP : 0) + segW;
+        row.push(w);
+      });
+      if (row.length) raffleRows.push(row);
+    }
+
     let bottomH = 0;
     if (beltsShown) bottomH += (bottomH ? 10 : 0) + g.legRowH + (beltsLines.length - 1) * 18;
-    raffleWinners.forEach(() => { bottomH += (bottomH ? 10 : 0) + g.legRowH; }); // one row per prize
+    if (raffleShown) bottomH += (bottomH ? 10 : 0) + g.legRowH + (raffleRows.length - 1) * 18;
     if (nxShown) bottomH += (bottomH ? 10 : 0) + g.legRowH + (nxLines.length - 1) * 18;
 
     const mapGap = bottomH ? 24 : 0; // space between the map and the lists below it
@@ -1088,8 +1109,36 @@
       drawnAny = true;
     };
 
+    // all raffle prizes on one flowing line (icon + bold label + winner per segment)
+    const drawRaffle = (rows) => {
+      if (drawnAny) by += 10;
+      let ly = by + 11;
+      rows.forEach(row => {
+        let hx = g.pad;
+        row.forEach(w => {
+          if (w.img.complete && w.img.naturalWidth) {
+            const iw = 16 * w.img.naturalWidth / w.img.naturalHeight;
+            ctx.drawImage(w.img, hx, ly - 8, iw, 16);
+            hx += iw + 6;
+          }
+          ctx.font = "600 13px system-ui, sans-serif";
+          ctx.fillStyle = g.text;
+          const lbl = w.label + ": ";
+          ctx.fillText(lbl, hx, ly);
+          hx += ctx.measureText(lbl).width;
+          ctx.font = "13px system-ui, sans-serif";
+          const nm = w.name || "—";
+          ctx.fillText(nm, hx, ly);
+          hx += ctx.measureText(nm).width + RAFFLE_SEP;
+        });
+        ly += 18;
+      });
+      by += g.legRowH + (rows.length - 1) * 18;
+      drawnAny = true;
+    };
+
     if (beltsShown) drawInline(beltImg, "Belts:", beltsLines);
-    raffleWinners.forEach(w => drawInline(w.img, w.label + ":", [w.name || "—"]));
+    if (raffleShown) drawRaffle(raffleRows);
     if (nxShown) drawInline(nxImg, "NX winners:", nxLines);
 
     return canvas;
