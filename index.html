@@ -410,8 +410,8 @@
 
       <div class="checks">
         <span class="hint">Include:</span>
-        <label><input type="checkbox" id="cBelts" checked> Belts</label>
-        <label><input type="checkbox" id="cNx"> NX</label>
+        <label><input type="checkbox" id="cBelts" checked><img class="ri" src="belt.png" alt=""> Belts</label>
+        <label><input type="checkbox" id="cNx"><img class="ri" src="nx_5k.png" alt=""> NX</label>
       </div>
 
       <div class="checks">
@@ -475,7 +475,7 @@
   bulletImg.src = "data:image/webp;base64,UklGRuABAABXRUJQVlA4WAoAAAAQAAAAGgAAGQAAQUxQSIMAAAAFgFvbtqpqnofkpwWaowViIkIqIKYqSuDw3T/uEkfEBBACS0tLBwbENt+ODppo2u9OGlrtzotTtbtvTtb5duKg+3WagKUTht03pFnusjyBOEezvA6xy/JBGQ9RJ5hOLKFUFUvopxED+6tmMzlnIKXdtVVbqZeZ0u5C7agqmSRkQaEoAABWUDggNgEAAHAGAJ0BKhsAGgA+bS6RRqQioaEoDVCADYlsAJ0v1dYDbACnW3egcTwbQ64aTQRrTKDbMwjDm9qEJYS+AAD+/bnUbxEG5u5xoCEiz2wSIiVEz8Wz3/qYmpDVuMnI7TXB/dAwU9Hk/n+lg7o7Jx8NM9+upTEUNX8b8Y96rgKCwpVkM/6wC3Wf/IgeHvHJhCqDfhJLjQzy5L8uhljZx9usjW5eGU8FeWSqv2mQjfrABtGAt5sNMxavqe+I27F3vhD355n8F6l1sQCuDDhAWWvuNQmBffUEeioGefIwdC/XdHqGAeJsDYfo9XDnKtVdIh5T3pYQKWzgcis3AREwb9miow24jy5upF9Oorxe+0FLyheblH8tN1HezO2yGfzm+ck9J4h4P8u6x8WKJsdhIT5VVMZBOymAAAA=";
 
   const quiverImg = new Image();
-  quiverImg.src = "data:image/webp;base64,UklGRg4CAABXRUJQVlA4WAoAAAAQAAAAGgAAGQAAQUxQSLQAAAANgFrbtmtlnfs+OZ4GiDXQwS8CnxQFMJA5KDwDT114/v6KzDvipQMVRMQE0Glm5YueRt+agYG1BZlhjSA/yA+SjfQqgMjYnby1pNZmpH+VCsv6mCkGsPiW8OpGsyKzNmuMkmhWKb+lpWy8JPzHOqq833om7yf+4DdGQx7OwZXw/ATjMcgl8fsFcLIeV3C6f0CrC4k14Mzup/4Y3AJqCMAne+7HYUwxQDii6QghuQAXOMKROwBWUDggNAEAAFAHAJ0BKhsAGgA+aSiQRaQioZv6rABABoS2AFiSoGQA9SveOW6lVaV6Q3+noVhyniQQkXHiPTInKoIzA7uNtTos2AAA/vruQfCI2GnJ3xU/aLJmcS/eXYTRAT9gNOAO1ENOE7GLPxbEO69tPvpWmDWF5EdPcp62uFLOB25Z5j2CYv5jaM36u8myv6IkOI9HTXlp8Sn0FxpYl2MPcIY/QyymCQ1jajF0R9mcDdf2cHTqG1Jh1eHve7wtDKlqM/X4cFLPf91HGQo/gMEr2GjXUhXnAyofk2hq6frQohnAzl1DXuz+x5hagu0sbg7gjE/mdxs/YQHEl9ZwioL8FokmTFfYQXbR7Ud/4a9ONoWNRV31712+JAC9uoqXma6AbKpNsLEd9niqlNJ7/MCMeO25eC1NgAAA=";
+  quiverImg.src = "data:image/webp;base64,UklGRg4CAABXRUJQVlA4WAoAAAAQAAAAGgAAGQAAQUxQSLQAAAANgFrbtmtlnfs+OZ4GiDXQwS8CnxQFMJA5KDwDT114/v6KzDvipQMVRMQE0Glm5YueRt+agYG1BZlhjSA/yA+SjfQqgMjYnby1pNZmpH+VCsv6mCkGsPiW8OpGsyKzNmuMkmhWKb+lpWy8JPzHOqq833om7yf+4DdGQx7OwZXw/ATjMcgl8fsFcLIeV3C6f0CrC4k14Mzup/4Y3AJqCMAne+7HYUwxQDii6QghuQAXOMKROwBWUDggNAEAAFAHAJ0BKhsAGgA+aSiQRaQioZv6rABABoS2AFiSoGQA9SveOW6lVaV6Q3+noVhyniQQkXHiPTInKoIzA7uNtTos2AAA/vruQfCI2GnJ3xU/aLJmcS/eXYTRAT9gNOAO1ENOE7GLPxbEO69tPvpWmDWF5EdPcp62uFLOB25Z5j2CYv5jaM36u8myv6IkOI9HTXlp8Sn0FxpYl2MPcIY/QyymCQ1jajF0R9mcDdf2cHTqG1Jh1eHve7wtDKlqM/X4cFLPf91HGQo/gMEr2GjXUhXnAyofk2hq6frQohnAzl1DXuz+x5hagu0sbg7gjE/mdxs/YQHEl9ZwioL8FokmTFfYQXbR7Ud/4a9ONoWNRV31712+JAC9uoqXma6AbKpNsLEd9niqlNJ7/MCMeO25eC1NgAAA";
 
   // If an icon finishes decoding after the first render, redraw the preview.
   beltImg.onload = nxImg.onload = rtkImg.onload = bulletImg.onload = quiverImg.onload =
