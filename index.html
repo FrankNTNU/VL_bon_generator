@@ -370,7 +370,7 @@
       <li><strong>Belt looters cannot win</strong> the raffle or the random NX &mdash; those go only to non-belt-looters.</li>
       <li>Among the remaining bonus players, anyone who received <strong>more than the average number of boxes</strong> (i.e. got an extra box from an uneven split) <strong>cannot win</strong> the raffle, and is only used for NX as a last-resort fill (see below).</li>
       <li><strong>Raffle winners are removed from the NX pool</strong> &mdash; nobody can win both a raffle prize and NX.</li>
-      <li><strong>All 6 NX slots are always filled.</strong> If the priority order above doesn&rsquo;t reach 6, the remaining slots are back-filled from everyone else &mdash; fewest boxes first &mdash; without reusing any raffle winner.</li>
+      <li><strong>All 6 NX slots are always filled.</strong> If the priority order above doesn&rsquo;t reach 6, the <strong>fewer-box bonus players win again</strong> (a second NX, ties random) before anyone with more boxes is used. Only if there are none, the remaining slots are back-filled from everyone else &mdash; fewest boxes first &mdash; without reusing any raffle winner, and never giving a belt looter more than the <em>NX per belt looter</em> setting (so none at all when it is 0). If that still isn&rsquo;t enough, other bonus players can win a second NX.</li>
     </ul>
 
     <h3>Other</h3>
@@ -710,10 +710,16 @@
       : priorityBonners.concat(guaranteedNx).concat(fillerBonners)
     ).slice(0, NX_WINNERS);
 
-    // Always fill all 6 NX slots. If the priority arrangement left slots open
-    // (few belt looters, or bonners excluded for holding above-average boxes),
+    // Open slots go to the fewer-box bonners again (a second NX, and so on)
+    // before anyone holding more boxes is considered.
+    for (let i = 0; nxList.length < NX_WINNERS && priorityBonners.length; i++) {
+      nxList.push(priorityBonners[i % priorityBonners.length]);
+    }
+
+    // Always fill all 6 NX slots. If slots are still open (no fewer-box
+    // bonners left in the pool, e.g. an even split or all won the raffle),
     // back-fill from everyone else — fewest boxes first — never reusing the
-    // raffle winner and never giving a non-belt-looter a second NX.
+    // raffle winner and never giving a belt looter more than nxPerLooter.
     if (nxList.length < NX_WINNERS && bonners.length) {
       const used = {};
       nxList.forEach(n => (used[n] = (used[n] || 0) + 1));
@@ -722,12 +728,13 @@
       // pass 1: honor per-person caps (belt looters up to nxPerLooter, others 1)
       for (const b of backfill) {
         if (nxList.length >= NX_WINNERS) break;
-        const cap = beltSet.has(b.toLowerCase()) ? Math.max(nxPerLooter, 1) : 1;
+        const cap = beltSet.has(b.toLowerCase()) ? nxPerLooter : 1;
         if ((used[b] || 0) < cap) { nxList.push(b); used[b] = (used[b] || 0) + 1; }
       }
-      // pass 2 (last resort, rosters smaller than 6): repeat until 6 are shown
-      for (let i = 0; nxList.length < NX_WINNERS && backfill.length; i++) {
-        nxList.push(backfill[i % backfill.length]);
+      // pass 2 (last resort): give non-belt-looters a second NX until 6 are shown
+      const repeatPool = backfill.filter(b => !beltSet.has(b.toLowerCase()));
+      for (let i = 0; nxList.length < NX_WINNERS && repeatPool.length; i++) {
+        nxList.push(repeatPool[i % repeatPool.length]);
       }
     }
 
