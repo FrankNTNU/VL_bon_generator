@@ -204,6 +204,7 @@
   .checks { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
   .checks label { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 500; cursor: pointer; }
   .checks input { accent-color: var(--accent-2); }
+  .checks label.disabled { opacity: .45; cursor: default; }
   .row { display: flex; gap: 10px; margin-top: 18px; }
   button {
     flex: 1;
@@ -348,7 +349,7 @@
     <ul>
       <li>The map has <strong>30 boxes</strong>: 6 strips (A&ndash;F) of 5, laid out as A/B (top), C/D (middle), E/F (bottom).</li>
       <li><strong>Belt looters</strong> each get a fixed number of boxes &mdash; the <em>Boxes per belt looter</em> setting.</li>
-      <li>The remaining boxes are split <strong>as evenly as possible</strong> among the other bonus players.</li>
+      <li>The remaining boxes are split <strong>as evenly as possible</strong> among the other players.</li>
       <li>Each person&rsquo;s boxes are assigned as a <strong>compact cluster</strong>, kept close and reachable via the center ropes &mdash; nobody gets boxes stranded on opposite sides of a level.</li>
     </ul>
 
@@ -361,16 +362,17 @@
     <ul>
       <li>There are <strong>three optional raffle prizes</strong> &mdash; <img class="ri" src="rtk.png" alt=""> <strong>RTK</strong>, <img class="ri" src="bullet.webp" alt=""> <strong>Bullet</strong> and <img class="ri" src="quiver.webp" alt=""> <strong>Quiver</strong>. Tick any combination; <strong>each ticked prize draws its own separate winner</strong>, and only ticked prizes appear in the map and copied text.</li>
       <li>Raffle winners are <strong>distinct</strong> &mdash; nobody wins two prizes, and no raffle winner can also win NX. <strong>NX has 6 slots total</strong>, filled in priority order.</li>
-      <li>The <strong>Guarantee belt-looter NX</strong> checkbox decides priority when belt-looter guarantees and short-changed bonus players together want more than 6 slots:
+      <li>The <strong>Guarantee belt-looter NX</strong> checkbox decides priority when belt-looter guarantees and short-changed players together want more than 6 slots:
         <ul>
-          <li><strong>Checked (default):</strong> each belt looter takes their full per-looter NX (the <em>NX per belt looter</em> setting) <strong>first</strong>; the remaining slots go to bonus players with <strong>fewer than the average number of boxes</strong> (fewest first, ties random), then random fill.</li>
-          <li><strong>Unchecked:</strong> the <strong>fewer-box bonus players take top priority</strong> instead &mdash; if enough exist they fill the 6 slots first and belt-looter NX is <em>not</em> guaranteed; belt looters then take their per-looter NX from whatever remains.</li>
+          <li><strong>Checked (default):</strong> each belt looter takes their full per-looter NX (the <em>NX per belt looter</em> setting) <strong>first</strong>; the remaining slots go to players with <strong>fewer than the average number of boxes</strong> (fewest first, ties random), then random fill.</li>
+          <li><strong>Unchecked:</strong> the <strong>fewer-box players take top priority</strong> instead &mdash; if enough exist they fill the 6 slots first and belt-looter NX is <em>not</em> guaranteed; belt looters then take their per-looter NX from whatever remains.</li>
         </ul>
       </li>
       <li><strong>Belt looters cannot win</strong> the raffle or the random NX &mdash; those go only to non-belt-looters.</li>
-      <li>Among the remaining bonus players, anyone who received <strong>more than the average number of boxes</strong> (i.e. got an extra box from an uneven split) <strong>cannot win</strong> the raffle, and is only used for NX as a last-resort fill (see below).</li>
+      <li>Among the remaining players, anyone who received <strong>more than the average number of boxes</strong> (i.e. got an extra box from an uneven split) <strong>cannot win</strong> the raffle, and is only used for NX as a last-resort fill (see below).</li>
       <li><strong>Raffle winners are removed from the NX pool</strong> &mdash; nobody can win both a raffle prize and NX.</li>
-      <li><strong>All 6 NX slots are always filled.</strong> If the priority order above doesn&rsquo;t reach 6, the remaining slots are back-filled from everyone else &mdash; fewest boxes first &mdash; without reusing any raffle winner.</li>
+      <li><strong>All 6 NX slots are always filled.</strong> If the priority order above doesn&rsquo;t reach 6, the <strong>fewer-box players win again</strong> (a second NX, ties random) before anyone with more boxes is used. Only if there are none, the remaining slots are back-filled from everyone else &mdash; fewest boxes first &mdash; without reusing any raffle winner, and never giving a belt looter more than the <em>NX per belt looter</em> setting (so none at all when it is 0). If that still isn&rsquo;t enough, other players can win a second NX.</li>
+      <li>When <em>NX per belt looter</em> is <strong>0</strong> (the 6 NX are raffled entirely among the fewer-box players), <strong>no player can win more than 2 NX</strong>. If the eligible pool is too small to reach 6 under that cap, fewer than 6 NX are shown rather than giving anyone a third.</li>
     </ul>
 
     <h3>Other</h3>
@@ -394,30 +396,33 @@
   <div class="layout">
     <!-- CONTROLS -->
     <div class="card">
-      <label class="top">Bonus players <span class="count" id="bonnersCount">0</span> <span class="hint">(names; space/comma/newline separated)</span></label>
+      <label class="top">Players <span class="count" id="bonnersCount">0</span> <span class="info-wrap"><button type="button" class="infobtn" aria-label="About players">i</button><span class="tip">Everyone in the run. Non-belt players share the 30 boxes as evenly as possible; belt looters instead get a fixed number (set below).</span></span> <span class="hint">(names; space/comma/newline separated)</span></label>
       <textarea id="bonners" placeholder="player1 playe2 playe3 ... beltlooter1 beltloote2 beltloote3"></textarea>
 
-      <label>Belt looters <img class="ri" src="belt.png" alt=""> <span class="count" id="beltLootersCount">0</span> <span class="hint">(subset of bonus players)</span></label>
+      <label>Belt looters <img class="ri" src="belt.png" alt=""> <span class="count" id="beltLootersCount">0</span> <span class="info-wrap"><button type="button" class="infobtn" aria-label="About belt looters">i</button><span class="tip">Get the 6 belts plus a fixed number of boxes, and are excluded from the raffle and random NX. Leave empty to split all boxes and belts evenly among everyone.</span></span> <span class="hint">(subset of the players above)</span></label>
       <textarea id="beltLooters" placeholder="beltlooter1 beltloote2 beltloote3"></textarea>
 
-      <label>Boxes per belt looter <span class="info-wrap"><button type="button" class="infobtn" aria-label="About boxes per belt looter">i</button><span class="tip">Guaranteed each; rest split among others.</span></span></label>
+      <label>Boxes per belt looter <span class="info-wrap"><button type="button" class="infobtn" aria-label="About boxes per belt looter">i</button><span class="tip">Boxes each belt looter is guaranteed; the rest of the 30 are split evenly among the non-belt players. Set 0 to give belt looters belts only, no boxes.</span></span></label>
       <input type="number" id="boxesPerLooter" min="0" max="30" value="1">
 
-      <label>NX per belt looter <img class="ri" src="nx_5k.png" alt=""> <span class="info-wrap"><button type="button" class="infobtn" aria-label="About NX per belt looter">i</button><span class="tip">Guaranteed each, from the 6 total.</span></span></label>
+      <label>NX per belt looter <img class="ri" src="nx_5k.png" alt=""> <span class="info-wrap"><button type="button" class="infobtn" aria-label="About NX per belt looter">i</button><span class="tip">NX slots (of 6 total) reserved for each belt looter. Set 0 to send all 6 NX to the fewer-box players &mdash; capped at 2 each.</span></span></label>
       <input type="number" id="nxPerLooter" min="0" max="6" value="1">
 
       <div class="checks">
-        <label><input type="checkbox" id="cBeltNxGuaranteed" checked> Guarantee belt-looter NX <span class="hint">(over fewer-box bonus players)</span></label>
+        <label><input type="checkbox" id="cBeltNxGuaranteed" checked> Guarantee belt-looter NX</label>
+        <span class="info-wrap"><button type="button" class="infobtn" aria-label="About guarantee belt-looter NX">i</button><span class="tip">Only matters when belt-looter NX and fewer-box players together want more than the 6 slots. Checked: belt looters take their NX first. Unchecked: fewer-box players take priority and belt-looter NX fills from what&rsquo;s left.</span></span>
       </div>
 
       <div class="checks">
         <span class="hint">Include:</span>
+        <span class="info-wrap"><button type="button" class="infobtn" aria-label="About include toggles">i</button><span class="tip">Show these sections in the map image and copied text. The box map always shows; these only add or remove the Belts / NX sections.</span></span>
         <label><input type="checkbox" id="cBelts" checked><img class="ri" src="belt.png" alt=""> Belts</label>
         <label><input type="checkbox" id="cNx"><img class="ri" src="nx_5k.png" alt=""> NX</label>
       </div>
 
       <div class="checks">
         <span class="hint">Raffle:</span>
+        <span class="info-wrap"><button type="button" class="infobtn" aria-label="About raffle prizes">i</button><span class="tip">Each ticked prize draws its own separate winner from eligible players (never a belt looter, never an NX or other raffle winner). Untick to leave a prize out entirely.</span></span>
         <label><input type="checkbox" id="cRtk" checked><img class="ri" src="rtk.png" alt=""> RTK</label>
         <label><input type="checkbox" id="cBullet"><img class="ri" src="bullet.webp" alt=""> Bullet</label>
         <label><input type="checkbox" id="cQuiver"><img class="ri" src="quiver.webp" alt=""> Quiver</label>
@@ -441,7 +446,7 @@
     <div class="card">
       <div class="preview" id="preview"></div>
       <div class="dev" id="devHtml" style="display:none"></div>
-      <div class="out empty" id="out">Fill in the bonus players field and hit Generate to build the map.</div>
+      <div class="out empty" id="out">Fill in the players field and hit Generate to build the map.</div>
     </div>
   </div>
 
@@ -606,11 +611,11 @@
     const seen = new Set();
     for (const n of bonners) {
       const k = n.toLowerCase();
-      if (seen.has(k)) return fail(`Duplicate bonus player name: "${n}"`);
+      if (seen.has(k)) return fail(`Duplicate player name: "${n}"`);
       seen.add(k);
     }
-    if (bonners.length < 1) return fail("Enter at least one bonus player.");
-    if (bonners.length > TOTAL_BOXES) return fail(`Too many bonus players (max ${TOTAL_BOXES}).`);
+    if (bonners.length < 1) return fail("Enter at least one player.");
+    if (bonners.length > TOTAL_BOXES) return fail(`Too many players (max ${TOTAL_BOXES}).`);
 
     // Map each bonner's lowercase key to its canonical (as-typed) name, so belt
     // looters typed in a different case still resolve to the same person.
@@ -618,7 +623,7 @@
     const beltLooters = [];
     for (const n of beltLootersRaw) {
       const canon = bonnerByKey.get(n.toLowerCase());
-      if (!canon) return fail(`Belt looter "${n}" is not in the bonus players list.`);
+      if (!canon) return fail(`Belt looter "${n}" is not in the players list.`);
       beltLooters.push(canon);
     }
 
@@ -710,24 +715,50 @@
       : priorityBonners.concat(guaranteedNx).concat(fillerBonners)
     ).slice(0, NX_WINNERS);
 
-    // Always fill all 6 NX slots. If the priority arrangement left slots open
-    // (few belt looters, or bonners excluded for holding above-average boxes),
+    // Per-player cap on repeat NX. With guaranteed belt-looter NX (nxPerLooter > 0)
+    // there's no extra cap; when it's 0 the 6 NX are raffled among the fewer-box
+    // bonners, so cap any one player at 2 — a tiny pool must never hand one person
+    // 3+. (When the eligible pool is too small to reach 6 under the cap, fewer than
+    // 6 NX are shown rather than exceeding it.)
+    const maxPerPlayer = nxPerLooter === 0 ? 2 : Infinity;
+    const used = {};
+    nxList.forEach(n => (used[n] = (used[n] || 0) + 1));
+
+    // Open slots go to the fewer-box bonners again (a second NX, and so on)
+    // before anyone holding more boxes is considered — up to maxPerPlayer each.
+    for (let i = 0; nxList.length < NX_WINNERS && priorityBonners.length; i++) {
+      const b = priorityBonners[i % priorityBonners.length];
+      if ((used[b] || 0) >= maxPerPlayer) {
+        if (priorityBonners.every(p => (used[p] || 0) >= maxPerPlayer)) break; // all capped
+        continue;
+      }
+      nxList.push(b); used[b] = (used[b] || 0) + 1;
+    }
+
+    // Always fill all 6 NX slots. If slots are still open (no fewer-box
+    // bonners left under the cap, e.g. an even split or all won the raffle),
     // back-fill from everyone else — fewest boxes first — never reusing the
-    // raffle winner and never giving a non-belt-looter a second NX.
+    // raffle winner, never giving a belt looter more than nxPerLooter, and
+    // never exceeding maxPerPlayer.
     if (nxList.length < NX_WINNERS && bonners.length) {
-      const used = {};
-      nxList.forEach(n => (used[n] = (used[n] || 0) + 1));
       const backfill = shuffle(bonners.filter(b => !raffleWinnerNames.includes(b)))
         .sort((a, b) => counts[a] - counts[b]); // fewest boxes first, never a raffle winner
       // pass 1: honor per-person caps (belt looters up to nxPerLooter, others 1)
       for (const b of backfill) {
         if (nxList.length >= NX_WINNERS) break;
-        const cap = beltSet.has(b.toLowerCase()) ? Math.max(nxPerLooter, 1) : 1;
+        const cap = beltSet.has(b.toLowerCase()) ? nxPerLooter : 1;
         if ((used[b] || 0) < cap) { nxList.push(b); used[b] = (used[b] || 0) + 1; }
       }
-      // pass 2 (last resort, rosters smaller than 6): repeat until 6 are shown
-      for (let i = 0; nxList.length < NX_WINNERS && backfill.length; i++) {
-        nxList.push(backfill[i % backfill.length]);
+      // pass 2 (last resort): give non-belt-looters a second NX until 6 are
+      // shown, still within maxPerPlayer.
+      const repeatPool = backfill.filter(b => !beltSet.has(b.toLowerCase()));
+      for (let i = 0; nxList.length < NX_WINNERS && repeatPool.length; i++) {
+        const b = repeatPool[i % repeatPool.length];
+        if ((used[b] || 0) >= maxPerPlayer) {
+          if (repeatPool.every(p => (used[p] || 0) >= maxPerPlayer)) break; // all capped
+          continue;
+        }
+        nxList.push(b); used[b] = (used[b] || 0) + 1;
       }
     }
 
@@ -1029,7 +1060,7 @@
     // stats line
     ctx.font = "13px system-ui, sans-serif";
     ctx.fillStyle = g.muted;
-    const statLine = `Bonus players ${d.nBon}  ·  Belt looters ${d.nBelt}`;
+    const statLine = `Players ${d.nBon}  ·  Belt looters ${d.nBelt}`;
     ctx.fillText(statLine, g.pad, g.pad + g.titleH);
 
     // grid cells
@@ -1145,7 +1176,23 @@
     if (raffleShown) drawRaffle(raffleRows);
     if (nxShown) drawInline(nxImg, "NX winners:", nxLines);
 
+    drawWatermark(ctx, width, height);
+
     return canvas;
+  }
+
+  // Small credit marking shared images as Ohms' tool, tucked into the top-right
+  // corner (just under the timestamp) so it never overlaps the map or the lists.
+  // ctx is already scaled by S, so width here is the logical (unscaled) width.
+  function drawWatermark(ctx, width, height) {
+    const g = IMG;
+    ctx.save();
+    ctx.fillStyle = g.muted;
+    ctx.font = "italic 12px system-ui, sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.fillText("Ohms' tool only", width - g.pad, g.pad + g.titleH);
+    ctx.restore();
   }
 
   function downloadBlob(blob) {
@@ -1315,6 +1362,17 @@
   $("bonners").addEventListener("input", updateCounts);
   $("beltLooters").addEventListener("input", updateCounts);
 
+  // "Guarantee belt-looter NX" only applies when belt looters actually get NX,
+  // so disable it when NX per belt looter is 0.
+  function syncBeltNxGuaranteed() {
+    const zero = (parseInt($("nxPerLooter").value, 10) || 0) === 0;
+    const cb = $("cBeltNxGuaranteed");
+    cb.disabled = zero;
+    cb.closest("label").classList.toggle("disabled", zero);
+  }
+  $("nxPerLooter").addEventListener("input", syncBeltNxGuaranteed);
+  $("nxPerLooter").addEventListener("change", syncBeltNxGuaranteed);
+
   // info (i) tooltips: hover shows via CSS; click toggles (for touch), outside click closes
   document.querySelectorAll(".infobtn").forEach(btn => {
     btn.addEventListener("click", e => {
@@ -1346,6 +1404,7 @@
     $("beltLooters").value = "beltlooter1 beltlooter2 beltlooter3";
   }
   updateCounts();
+  syncBeltNxGuaranteed();
 })();
 </script>
 
