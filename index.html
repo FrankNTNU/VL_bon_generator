@@ -1063,6 +1063,16 @@
     const statLine = `Players ${d.nBon}  ·  Belt looters ${d.nBelt}`;
     ctx.fillText(statLine, g.pad, g.pad + g.titleH);
 
+    // Per-player prize markers for the cells (drawn as small badges next to the
+    // belt icon). Respect the include toggles: nxShown / raffleShown already gate
+    // these. A player can hold 2 NX (shown as ×2); raffle prizes list their icons.
+    const nxCountByName = {};
+    if (nxShown) d.nxList.forEach(n => (nxCountByName[n] = (nxCountByName[n] || 0) + 1));
+    const raffleIconsByName = {};
+    if (raffleShown) raffleWinners.forEach(w => {
+      if (w.name && w.img) (raffleIconsByName[w.name] = raffleIconsByName[w.name] || []).push(w.img);
+    });
+
     // grid cells
     for (let r = 0; r < 3; r++) {
       const left = LETTERS[r * 2], right = LETTERS[r * 2 + 1];
@@ -1094,18 +1104,36 @@
         ctx.textBaseline = "top";
         ctx.fillText(coord, x + 7, y + 6);
 
-        // belt icon (top-right)
-        if (who && d.beltSet.has(who.toLowerCase())) {
-          if (beltImg.complete && beltImg.naturalWidth) {
-            const ih = 15, iw = ih * beltImg.naturalWidth / beltImg.naturalHeight;
-            ctx.drawImage(beltImg, x + g.cellW - iw - 4, y + 4, iw, ih);
-          } else {
-            ctx.fillStyle = g.belt;
-            ctx.font = "12px system-ui, sans-serif";
-            ctx.textAlign = "right";
-            ctx.fillText("★", x + g.cellW - 6, y + 5);
-            ctx.textAlign = "left";
+        // top-right prize badges, laid out right-to-left: belt, NX (×count), raffle
+        if (who) {
+          const lc = who.toLowerCase();
+          const bTop = y + 4, bH = 15;
+          let bx = x + g.cellW - 4; // right edge for the next badge
+          const badge = img => {
+            const iw = bH * img.naturalWidth / img.naturalHeight;
+            ctx.drawImage(img, bx - iw, bTop, iw, bH);
+            bx -= iw + 3;
+          };
+          // belt (rightmost — same spot as before)
+          if (d.beltSet.has(lc)) {
+            if (beltImg.complete && beltImg.naturalWidth) badge(beltImg);
+            else { ctx.fillStyle = g.belt; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "right"; ctx.fillText("★", bx, y + 5); ctx.textAlign = "left"; bx -= 14; }
           }
+          // NX, with a ×count when they hold more than one
+          const nxc = nxCountByName[who] || 0;
+          if (nxc > 0 && nxImg.complete && nxImg.naturalWidth) {
+            badge(nxImg);
+            if (nxc > 1) {
+              ctx.fillStyle = g.text; ctx.font = "700 10px system-ui, sans-serif";
+              ctx.textAlign = "right"; ctx.textBaseline = "top";
+              const t = "×" + nxc;
+              ctx.fillText(t, bx + 2, bTop + 2);
+              bx -= ctx.measureText(t).width;
+              ctx.textAlign = "left";
+            }
+          }
+          // raffle prizes won (RTK / Bullet / Quiver)
+          (raffleIconsByName[who] || []).forEach(img => { if (img.complete && img.naturalWidth) badge(img); });
         }
 
         // name (bottom-left)
